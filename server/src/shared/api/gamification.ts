@@ -13,6 +13,8 @@ export type GamificationFeatures = {
   levels: boolean;
   /** The permanent mastery-gated career ladder (Intern → Principal). Needs XP. */
   career: boolean;
+  /** Build Credits: a spendable cosmetic currency. Needs XP. */
+  credits: boolean;
   /** Needs XP. */
   leaderboards: boolean;
 };
@@ -33,6 +35,8 @@ export type GamificationSummary = {
   level: LevelProgress | null;
   /** The permanent career tier (highest reached, never demotes); null when the feature is off. */
   career: CareerProgress | null;
+  /** Spendable build-credit balance; null when the feature is off. */
+  credits: { balance: number } | null;
   freezes: StreakFreezeSummary | null;
   /** Finished weekly boards the learner ended in the top three; null when leaderboards are off or there are none. */
   topThree: TopThreeFinishes | null;

@@ -246,7 +246,8 @@ describe("dashboard and preferences", () => {
     const res = await request(app).get("/api/v1/learner/dashboard").set(auth());
     expect(res.status).toBe(200);
     const { gamification, courses } = res.body.data;
-    expect(gamification.features).toEqual({ xp: true, streakFreezes: true, levels: true, career: true, leaderboards: true });
+    expect(gamification.features).toEqual({ xp: true, streakFreezes: true, levels: true, career: true, credits: true, leaderboards: true });
+    expect(gamification.credits).toMatchObject({ balance: expect.any(Number) });
     expect(gamification.xp.total).toBe(180);
     expect(gamification.level).toMatchObject({ level: 2, totalXp: 180, toNext: 20 });
     expect(gamification.freezes).toMatchObject({ max: 2 });
@@ -262,7 +263,7 @@ describe("dashboard and preferences", () => {
 
     env.GAMIFICATION_XP = false;
     data = (await request(app).get("/api/v1/learner/dashboard").set(auth())).body.data;
-    expect(data.gamification.features).toEqual({ xp: false, streakFreezes: false, levels: false, career: false, leaderboards: false });
+    expect(data.gamification.features).toEqual({ xp: false, streakFreezes: false, levels: false, career: false, credits: false, leaderboards: false });
     expect(data.gamification.xp).toBeNull();
     expect(data.courses[0].xp).toBeNull();
   });

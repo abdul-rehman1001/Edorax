@@ -122,6 +122,10 @@ const schema = z.object({
     .string()
     .optional()
     .transform((value) => value !== "false"),
+  GAMIFICATION_CREDITS: z
+    .string()
+    .optional()
+    .transform((value) => value !== "false"),
   GAMIFICATION_LEADERBOARDS: z
     .string()
     .optional()
