@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   CheckCircle2,
   CirclePlay,
@@ -147,6 +147,14 @@ export type CodeInitialState = {
   solution?: string;
 };
 
+export type CodeEditorProps = {
+  value: string;
+  onChange: (source: string) => void;
+  readOnly?: boolean;
+  filename: string;
+  language: string;
+};
+
 export function CodeExerciseClient({
   id,
   config,
@@ -154,7 +162,9 @@ export function CodeExerciseClient({
   onRespond,
   onComplete,
   onFeedback,
+  renderEditor,
 }: {
+  renderEditor?: (props: CodeEditorProps) => ReactNode;
   id: string;
   config: SanitizedCodeConfig;
   initialState?: CodeInitialState | null;
@@ -277,13 +287,9 @@ export function CodeExerciseClient({
 
       {/* Editor */}
       <div className="space-y-4 bg-muted/25 px-4 py-5 sm:px-6">
-        <CodeEditor
-          value={source}
-          onChange={setSource}
-          readOnly={passed}
-          filename={filename}
-          language={language}
-        />
+        {renderEditor ? renderEditor({ value: source, onChange: setSource, readOnly: passed || submitting, filename, language: config.language }) : (
+          <CodeEditor value={source} onChange={setSource} readOnly={passed || submitting} filename={filename} language={language} />
+        )}
 
         {hintIndex >= 0 && hints[hintIndex] ? (
           <div className="flex gap-2.5 rounded-xl border border-brand-yellow bg-brand-yellow/15 px-4 py-3 text-sm text-foreground">

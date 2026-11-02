@@ -1,7 +1,9 @@
+import type { IDEAPI } from './ide';
 import type {
   CatalogCourseSummary,
   CatalogCourseDetail,
 } from '../../../server/src/shared/api/catalog';
+import type { LearnerProfile } from '../../../server/src/shared/api/learner';
 
 export type Course = CatalogCourseSummary;
 export type CourseDetail = CatalogCourseDetail & { signedIn: boolean };
@@ -13,6 +15,8 @@ export type CatalogResult =
   | { ok: false; message: string };
 export type EnrollmentResult = { lifecycle: 'ACTIVE' | 'PAYMENT_REQUIRED' };
 export interface DesktopAPI {
+  ide?: IDEAPI;
+  labs: import('./labs').LabsAPI;
   readonly platform?: string;
   webOrigin(): Promise<string>;
   integrityRequest(
@@ -25,7 +29,9 @@ export interface DesktopAPI {
   enroll(courseId: string): Promise<Result<EnrollmentResult>>;
   listCourses(): Promise<CatalogResult>;
   courseDetail(slug: string): Promise<Result<CourseDetail>>;
+  learnerProfile(): Promise<Result<LearnerProfile>>;
   signIn(): Promise<Result<{ signedIn: true }>>;
+  authStatus(): Promise<Result<{ signedIn: boolean }>>;
   cancelSignIn(): Promise<void>;
   signOut(): Promise<Result<{ signedIn: false }>>;
 }
@@ -47,6 +53,15 @@ export function filterCourses(
       [course.title, course.description, course.instructorName].some((value) =>
         value?.toLowerCase().includes(search),
       ),
+  );
+}
+
+export function isMyCourse(course: Course): boolean {
+  return (
+    course.enrollmentLifecycle === 'PENDING_ACCOUNT' ||
+    course.enrollmentLifecycle === 'PAYMENT_REQUIRED' ||
+    course.enrollmentLifecycle === 'ACTIVE' ||
+    course.enrollmentLifecycle === 'COMPLETED'
   );
 }
 

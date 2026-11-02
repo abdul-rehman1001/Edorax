@@ -2,6 +2,54 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { DesktopAPI } from './domain/catalog';
 
 const api: DesktopAPI = {
+  ide: {
+    status: () => ipcRenderer.invoke('ide:status'),
+    open: (create) => ipcRenderer.invoke('ide:open', create),
+    importSnippet: (source, filename) =>
+      ipcRenderer.invoke('ide:snippet', source, filename),
+    bounds: (value) => ipcRenderer.invoke('ide:bounds', value),
+    stop: () => ipcRenderer.invoke('ide:stop'),
+    newTerminal: () => ipcRenderer.invoke('ide:terminal'),
+    revealExplorer: () => ipcRenderer.invoke('ide:revealExplorer'),
+    openWithMenu: (position) =>
+      ipcRenderer.invoke('ide:open-with-menu', position),
+  },
+  labs: {
+    configure: (blockId, mode, createProject) =>
+      ipcRenderer.invoke('labs:configure', blockId, mode, createProject),
+    listFiles: (blockId) => ipcRenderer.invoke('labs:files', blockId),
+    readProjectFile: (blockId, path) =>
+      ipcRenderer.invoke('labs:file-read', blockId, path),
+    saveProjectFile: (blockId, path, content) =>
+      ipcRenderer.invoke('labs:file-save', blockId, path, content),
+    createEntry: (blockId, path, kind) =>
+      ipcRenderer.invoke('labs:file-create', blockId, path, kind),
+    status: (blockId) => ipcRenderer.invoke('labs:status', blockId),
+    start: (blockId) => ipcRenderer.invoke('labs:start', blockId),
+    stop: (blockId) => ipcRenderer.invoke('labs:stop', blockId),
+    reset: (blockId) => ipcRenderer.invoke('labs:reset', blockId),
+    readFile: (blockId) => ipcRenderer.invoke('labs:read-file', blockId),
+    saveFile: (blockId, content) =>
+      ipcRenderer.invoke('labs:save-file', blockId, content),
+    openTerminal: (blockId, id) =>
+      ipcRenderer.invoke('labs:terminal-open', blockId, id),
+    closeTerminal: (blockId, id) =>
+      ipcRenderer.invoke('labs:terminal-close', blockId, id),
+    terminalInput: (blockId, id, data) =>
+      ipcRenderer.invoke('labs:terminal-input', blockId, id, data),
+    resizeTerminal: (blockId, id, cols, rows) =>
+      ipcRenderer.invoke('labs:terminal-resize', blockId, id, cols, rows),
+    onTerminalData: (listener) => {
+      const receive = (
+        _event: Electron.IpcRendererEvent,
+        data: { id: string; data: string },
+      ) => listener(data);
+      ipcRenderer.on('labs:terminal-data', receive);
+      return () => {
+        ipcRenderer.removeListener('labs:terminal-data', receive);
+      };
+    },
+  },
   platform: process.platform,
   webOrigin: () => ipcRenderer.invoke('app:web-origin'),
   integrityRequest: (path, method, body) =>
@@ -29,7 +77,9 @@ const api: DesktopAPI = {
   enroll: (courseId) => ipcRenderer.invoke('enrollment:create', courseId),
   listCourses: () => ipcRenderer.invoke('catalog:list'),
   courseDetail: (slug) => ipcRenderer.invoke('catalog:detail', slug),
+  learnerProfile: () => ipcRenderer.invoke('learner:profile'),
   signIn: () => ipcRenderer.invoke('auth:sign-in'),
+  authStatus: () => ipcRenderer.invoke('auth:status'),
   cancelSignIn: () => ipcRenderer.invoke('auth:cancel-sign-in'),
   signOut: () => ipcRenderer.invoke('auth:sign-out'),
 };

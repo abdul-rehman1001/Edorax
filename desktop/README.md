@@ -1,6 +1,6 @@
 # Buildment desktop
 
-Electron Forge + React + TypeScript + Tailwind CSS. Includes the public course catalog, dedicated course previews, public curriculum outlines, browser sign-in, and a branded startup loader. No IDE or labs are included yet.
+Electron Forge + React + TypeScript + Tailwind CSS. Includes the public course catalog, dedicated course previews, public curriculum outlines, browser sign-in, and a branded startup loader. Includes an integrated course IDE with local and Docker workspaces.
 
 From the repository root:
 
@@ -72,3 +72,88 @@ The reader sidebar and heading outline are shared with web. Desktop bundles DM S
 The desktop name is Edorax. Sidebar/startup branding and packaged/Dock icons use `frontend/public/logo.svg`, the web app's current mark. After a web logo change, run `node desktop/scripts/sync-brand.mjs` on macOS with frontend dependencies installed to regenerate the SVG copy and PNG/ICNS/ICO assets. Restart Electron to refresh the native app name and Dock icon.
 
 Quiz results and confirmed chapter completion use the shared web feedback player and bundled audio assets. The existing `buildment:sound=off` preference and reduced-motion setting suppress playback; unavailable audio must not block saving answers or progress.
+
+## Course IDE: local projects and Docker
+
+Open a course lesson and select **Open IDE** in the toolbar. The panel opens on
+the right; **Focus IDE** expands it. **Open in IDE** on a code activity opens that
+exercise's shared instructions, hints, checks and completion feedback. Tabs switch
+between course practice and the lesson exercise. Closing the panel keeps its state
+while the reader remains mounted.
+
+Ordinary lesson code fences use Shiki's GitHub light/dark themes and the same
+copy/language toolbar as the web reader. **Open in IDE** imports a snippet into
+practice, with confirmation before replacing the buffer and closing file tabs.
+It never executes code automatically. Save the snippet to the selected folder
+before running it in the terminal.
+
+**New project** creates a new folder at a location chosen with a native dialog;
+it refuses an existing path. **Open folder** opens an existing project.
+**Files** and **Browser** switch the workspace view; an active terminal can be
+shown/hidden below without losing its session. Browser preview accepts HTTPS or
+localhost/127.0.0.1 HTTP addresses. Its sandbox has no desktop bridge, project file,
+or Edorax session access. Websites may refuse embedding, and apps requiring
+same-origin storage may not work in this sandbox. Start development servers in
+Local mode; Docker workspaces currently have no published ports/network.
+
+Workspace status refreshes every five seconds while idle. If Docker is stopped or
+unreachable, the panel asks you to open Docker Desktop; if only the lab container
+is stopped, it offers **Start terminal** to resume. **Retry status** checks immediately.
+A failed terminal attachment closes the stale terminal view and restores the start
+action instead of leaving an Electron IPC error on screen.
+
+Choose a runtime inside the IDE:
+
+- **Local machine** (default): use **Open folder** to select a real project folder.
+  The explorer reads that folder, Save file writes to it, and Start terminal opens
+  the user's shell there. No Docker engine or workspace authentication is needed.
+  Commands run on the user's machine with their normal account permissions.
+- **Docker Linux**: Start terminal prepares an isolated Node 22 Linux workspace
+  backed by a persistent volume. This mode requires Docker and authorized course
+  access. Sign-in identity is resolved using the authenticated `/auth/me` endpoint,
+  since desktop token exchange does not include a user object.
+
+The project explorer supports nested folders, new files/folders, file tabs, saving,
+and refresh. Refresh picks up terminal-created files. Files must be text up to
+64 KB; the explorer limits listings to 200 entries and eight levels, and hides
+node_modules/.git. Symbolic links and paths outside the selected project are
+rejected. Local files are never bulk-reset. Save files before changing runtime or
+project folder; non-entry-file drafts are scoped to the current panel session.
+
+The editor's course answer is represented by `exercise.js`; use **Save to
+workspace** to write it, or **Load from workspace** to import terminal changes
+with confirmation. **Check my code** submits the editor's exercise.js through the
+existing course API and refreshes progress. Extra project files are for practice;
+the existing server grader still accepts a single JavaScript source file. Local
+code can run without course submission; course grading still requires sign-in.
+
+Docker workspaces are scoped by account and exercise/course. They have no network,
+no host-directory or Docker-socket mounts, a read-only root, dropped capabilities,
+and CPU/memory/process limits. Stop preserves their files; Reset asks before
+removing that Docker workspace. Closing the panel preserves sessions; leaving the
+lesson closes its terminal connection but Docker containers remain running until
+stopped. Docker volume disk use is not quota-limited.
+
+Local terminal uses node-pty. `scripts/prepare-pty.mjs` repairs macOS prebuilt
+spawn-helper execute permissions during install/build. Forge includes the native
+module and unpacks it outside ASAR so the helper can run. Load the module through
+the app.asar path: node-pty performs its own helper-path translation. Mac ARM64 is tested;
+Windows and Intel Mac still need runtime validation.
+
+This is a project editor and terminal, not a full VS Code extension host.
+Course-authored Linux/system lab contracts, other graded languages, multi-file
+server grading, code-server, and AWS environments remain separate follow-up work.
+
+Validation (repository root, run browser tests and packaging sequentially):
+
+```sh
+npm --prefix desktop run typecheck
+npm --prefix frontend run typecheck
+npm --prefix desktop test
+npm --prefix desktop run test:labs
+TEST_UI_PORT=5193 npm --prefix desktop run test:ui -- --workers=1
+npm --prefix desktop run package
+```
+
+The real Docker test uses its own integration scope and skips existing resources.
+Local filesystem/PTY tests use temporary folders and remove only their own files.

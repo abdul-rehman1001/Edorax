@@ -164,3 +164,9 @@ input:focus-visible {
 .desktop-toolbar :is(button, a, input, select, textarea, summary, details) {
   -webkit-app-region: no-drag;
 }
+
+.lesson-snippet pre { margin: 0; overflow-x: auto; padding: 1rem; font-size: 13px; line-height: 1.7; }
+.lesson-snippet code { background: transparent; padding: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+@media (prefers-color-scheme: dark) {
+  .lesson-snippet .shiki, .lesson-snippet .shiki span { color: var(--shiki-dark) !important; background-color: var(--shiki-dark-bg) !important; }
+}

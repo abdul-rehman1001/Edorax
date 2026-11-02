@@ -51,3 +51,15 @@ server/src/generated/
 
 # prebundled mermaid copied from node_modules (see frontend/scripts/copy-mermaid.mjs)
 frontend/public/vendor/mermaid.min.js
+.gstack/
+
+# Local cross-agent handoff (not committed)
+/AGENT_PROGRESS.md
+
+# Generated Theia workspace assets
+/desktop/ide/lib/
+/desktop/ide/src-gen/
+/desktop/ide/esbuild.mjs
+/desktop/ide/gen-esbuild.config.js
+/desktop/ide/.theia/
+/desktop/ide/runtime/

@@ -1,0 +1,5 @@
+/* Edorax's workspace chrome; editor/terminal widgets retain Theia behavior. */
+body { --theia-ui-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.theia-app-shell { font-family: var(--theia-ui-font-family); }
+.lm-TabBar-tab { border-radius: 8px 8px 0 0; }
+.theia-light .lm-TabBar-tab.lm-mod-current { box-shadow: 0 1px 4px #0000000a; }

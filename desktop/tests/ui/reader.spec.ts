@@ -52,6 +52,7 @@ test(`native reader submits quizzes, completes chapters and respects sound mute=
           },
         ];
       window.buildment = {
+        ...window.buildment,
         webOrigin: async () => 'https://edorax.com',
         integrityRequest: async (path, _method, body) => {
           if (path.endsWith('/integrity'))

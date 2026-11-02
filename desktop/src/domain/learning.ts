@@ -4,6 +4,8 @@ export type { BlockState };
 export type LessonNode = {
   type: string;
   value?: string;
+  lang?: string;
+  meta?: string;
   name?: string;
   depth?: number;
   url?: string;

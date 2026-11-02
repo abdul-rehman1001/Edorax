@@ -7,6 +7,7 @@ import type {
   EnrollmentResult,
   Result,
 } from '../domain/catalog';
+import type { LearnerProfile } from '../../../server/src/shared/api/learner';
 
 // This module runs only in Electron's main process. Tokens never cross IPC.
 export function createPreviewClient(
@@ -15,6 +16,7 @@ export function createPreviewClient(
 ) {
   let token: string | null = null;
   let authVersion = 0;
+  let userId: string | null = null;
   async function call(
     path: string,
     method = 'GET',
@@ -144,6 +146,23 @@ export function createPreviewClient(
         };
       return { ok: true, data: result.data };
     },
+    async learnerProfile(): Promise<Result<LearnerProfile>> {
+      if (!token)
+        return {
+          ok: false,
+          code: 'AUTH_REQUIRED',
+          message: 'Sign in to view your profile.',
+        };
+      const result = await call('/api/v1/learner/profile');
+      if (!result.ok) return result;
+      if (!record(result.data) || typeof result.data.email !== 'string')
+        return {
+          ok: false,
+          code: 'INVALID_RESPONSE',
+          message: 'Could not read your profile.',
+        };
+      return { ok: true, data: result.data as LearnerProfile };
+    },
     async enroll(courseId: string): Promise<Result<EnrollmentResult>> {
       if (typeof courseId !== 'string' || !courseId || courseId.length > 200)
         return { ok: false, code: 'INVALID_INPUT', message: 'Invalid course.' };
@@ -207,6 +226,39 @@ export function createPreviewClient(
     cancelSignIn() {
       authVersion++;
     },
+    async authStatus(): Promise<Result<{ signedIn: boolean }>> {
+      if (!token) return { ok: true, data: { signedIn: false } };
+      const result = await call('/api/v1/auth/me');
+      if (result.ok && record(result.data) && record(result.data.user)) {
+        if (typeof result.data.user.id === 'string')
+          userId = result.data.user.id;
+        return { ok: true, data: { signedIn: true } };
+      }
+      // `call` clears the token on 401; otherwise keep the optimistic state.
+      return { ok: true, data: { signedIn: Boolean(token) } };
+    },
+    async resolveLocalLabUser(): Promise<string | null> {
+      if (!token) return null;
+      if (userId) return userId;
+      const session = token;
+      const result = await call('/api/v1/auth/me', 'GET', undefined, session);
+      if (session !== token)
+        throw new Error('Your session changed. Reopen the workspace.');
+      if (!result.ok) throw new Error(result.message);
+      if (
+        !record(result.data) ||
+        !record(result.data.user) ||
+        typeof result.data.user.id !== 'string'
+      )
+        throw new Error(
+          'Could not identify your account. Please sign in again.',
+        );
+      userId = result.data.user.id;
+      return userId;
+    },
+    localLabUser() {
+      return token ? userId : null;
+    },
     async exchange(
       code: string,
       verifier: string,
@@ -248,6 +300,10 @@ export function createPreviewClient(
           message: 'Sign-in was cancelled. Please try again.',
         };
       token = result.data.session.token;
+      userId =
+        record(result.data.user) && typeof result.data.user.id === 'string'
+          ? result.data.user.id
+          : null;
       return { ok: true, data: { signedIn: true } };
     },
     async signOut(): Promise<Result<{ signedIn: false }>> {

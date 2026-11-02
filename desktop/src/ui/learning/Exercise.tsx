@@ -1,5 +1,6 @@
+import { IDEExercise } from '../labs/CourseIDE';
 import { playFeedback } from '../../lib/sound-feedback';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { lessonBlocks } from './blocks/registry';
 import { lessonAsset } from './blocks/assets';
 import type { BlockState } from '../../domain/learning';
@@ -9,6 +10,8 @@ import { QuizClient } from '@buildment/learning-ui/blocks/exercises/QuizClient';
 import { PredictClient } from '@buildment/learning-ui/blocks/exercises/PredictClient';
 import { OpenQuestionClient } from '@buildment/learning-ui/blocks/exercises/OpenQuestionClient';
 import { CodeExerciseClient } from '@buildment/learning-ui/blocks/exercises/CodeExerciseClient';
+
+const CourseCodeEditor = lazy(() => import('../labs/CourseCodeEditor'));
 
 export function Exercise({
   id,
@@ -53,7 +56,9 @@ export function Exercise({
     setBusy(true);
     setError('');
     try {
-      const result = await window.buildment.learning.answer(id, { complete: true });
+      const result = await window.buildment.learning.answer(id, {
+        complete: true,
+      });
       if (!result.ok) setError(result.message);
       else {
         setRead(true);
@@ -115,8 +120,15 @@ export function Exercise({
         config={block.config}
         initialState={block.initialState}
         request={async (action, payload) => {
-          const result = await window.buildment.learning.aiInterview(id, action, payload);
-          if (!result.ok) throw Object.assign(new Error(result.message), { code: result.code });
+          const result = await window.buildment.learning.aiInterview(
+            id,
+            action,
+            payload,
+          );
+          if (!result.ok)
+            throw Object.assign(new Error(result.message), {
+              code: result.code,
+            });
           return result.data.session;
         }}
         onComplete={onSaved}
@@ -134,13 +146,17 @@ export function Exercise({
         onFeedback={playFeedback}
         id={id}
         config={block.config}
-        initialState={quizAnswers ? {
-          selected: quizAnswers[id] ?? block.initialState?.selected ?? [],
-          isCorrect: block.initialState?.isCorrect ?? null,
-          score: block.initialState?.score ?? null,
-          maxScore: block.initialState?.maxScore ?? null,
-          explanation: block.initialState?.explanation,
-        } : block.initialState}
+        initialState={
+          quizAnswers
+            ? {
+                selected: quizAnswers[id] ?? block.initialState?.selected ?? [],
+                isCorrect: block.initialState?.isCorrect ?? null,
+                score: block.initialState?.score ?? null,
+                maxScore: block.initialState?.maxScore ?? null,
+                explanation: block.initialState?.explanation,
+              }
+            : block.initialState
+        }
         presentation={quizAnswers === undefined ? 'standalone' : 'wizard'}
         onAnswerChange={(answers) => onQuizAnswer?.(id, answers)}
         onRespond={respond}
@@ -172,13 +188,20 @@ export function Exercise({
     );
   if (block.type === 'CODE')
     return (
-      <CodeExerciseClient
-        id={id}
-        config={block.config}
-        initialState={block.initialState}
-        onRespond={respond}
-        onComplete={onSaved}
-      />
+      <IDEExercise id={id} title={block.config.prompt}>
+        <CodeExerciseClient
+          renderEditor={(props) => (
+            <Suspense fallback={<p role="status">Opening code editor…</p>}>
+              <CourseCodeEditor key={id} blockId={id} {...props} />
+            </Suspense>
+          )}
+          id={id}
+          config={block.config}
+          initialState={block.initialState}
+          onRespond={respond}
+          onComplete={onSaved}
+        />
+      </IDEExercise>
     );
   return null;
 }

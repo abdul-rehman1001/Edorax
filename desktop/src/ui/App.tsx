@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { filterCourses, type Course } from '../domain/catalog';
+import { filterCourses, isMyCourse, type Course } from '../domain/catalog';
 import { CourseReader } from './learning/CourseReader';
 import { CoursePreview } from './courses/CoursePreview';
 import { CourseCatalog } from './courses/CourseCatalog';
@@ -52,6 +52,7 @@ export function App() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
+  const [tab, setTab] = useState<'all' | 'mine'>('all');
 
   const catalogGeneration = useRef(0);
   async function load() {
@@ -78,7 +79,10 @@ export function App() {
       catalogGeneration.current++;
     };
   }, [authRevision, signedIn, selected?.id]);
-  const visible = filterCourses(courses, query, category);
+  const visible =
+    tab === 'mine'
+      ? courses.filter(isMyCourse)
+      : filterCourses(courses, query, category);
   const categories = [...new Set(courses.map((course) => course.category))];
 
   function toggleSidebar() {
@@ -154,6 +158,10 @@ export function App() {
                 setCategory,
                 load,
                 openCourse,
+                tab,
+                setTab,
+                signedIn,
+                onSignIn: () => void changeSession(true),
               }}
             />
           )}

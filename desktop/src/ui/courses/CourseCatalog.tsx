@@ -3,9 +3,10 @@ import {
   ArrowUpRight,
   RefreshCw,
   Search,
+  UserRound,
   WifiOff,
 } from 'lucide-react';
-import type { Course } from '../../domain/catalog';
+import { isMyCourse, type Course } from '../../domain/catalog';
 import { CourseCard } from './CourseCard';
 import { categoryName } from './format';
 import type { Dispatch, SetStateAction } from 'react';
@@ -21,6 +22,10 @@ type Props = {
   setCategory: Dispatch<SetStateAction<string>>;
   load: () => Promise<void>;
   openCourse: (course: Course) => void;
+  tab: 'all' | 'mine';
+  setTab: Dispatch<SetStateAction<'all' | 'mine'>>;
+  signedIn: boolean;
+  onSignIn: () => void;
 };
 export function CourseCatalog({
   courses,
@@ -34,7 +39,12 @@ export function CourseCatalog({
   setCategory,
   load,
   openCourse,
+  tab,
+  setTab,
+  signedIn,
+  onSignIn,
 }: Props) {
+  const mineCount = courses.filter(isMyCourse).length;
   return (
     <div className="mx-auto max-w-[1320px] px-8 py-9 lg:px-12">
       <section className="relative mb-9 overflow-hidden rounded-2xl border border-border bg-muted p-8 lg:p-10">
@@ -69,6 +79,23 @@ export function CourseCatalog({
         </div>
       </section>
 
+      <nav aria-label="Courses" className="mb-6 flex flex-wrap gap-2">
+        <button
+          aria-pressed={tab === 'all'}
+          onClick={() => setTab('all')}
+          className={`rounded-lg px-4 py-2.5 text-xs font-medium transition-colors ${tab === 'all' ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:border-ok'}`}
+        >
+          All courses
+        </button>
+        <button
+          aria-pressed={tab === 'mine'}
+          onClick={() => setTab('mine')}
+          className={`rounded-lg px-4 py-2.5 text-xs font-medium transition-colors ${tab === 'mine' ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:border-ok'}`}
+        >
+          My courses
+        </button>
+      </nav>
+
       <section aria-labelledby="courses-title">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -77,16 +104,18 @@ export function CourseCatalog({
                 id="courses-title"
                 className="text-xl font-semibold tracking-tight"
               >
-                Explore courses
+                {tab === 'mine' ? 'My courses' : 'Explore courses'}
               </h2>
               {!loading && !error && (
                 <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                  {courses.length}
+                  {tab === 'mine' ? mineCount : courses.length}
                 </span>
               )}
             </div>
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Find something worth getting curious about.
+              {tab === 'mine'
+                ? 'Pick up where you left off.'
+                : 'Find something worth getting curious about.'}
             </p>
           </div>
           <button
@@ -99,30 +128,35 @@ export function CourseCatalog({
             Refresh
           </button>
         </div>
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div aria-label="Course categories" className="flex flex-wrap gap-2">
-            {['all', ...categories].map((value) => (
-              <button
-                key={value}
-                aria-pressed={category === value}
-                onClick={() => setCategory(value)}
-                className={`rounded-lg px-4 py-2.5 text-xs font-medium transition-colors ${category === value ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:border-ok'}`}
-              >
-                {value === 'all' ? 'All courses' : categoryName(value)}
-              </button>
-            ))}
+        {tab === 'all' && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div
+              aria-label="Course categories"
+              className="flex flex-wrap gap-2"
+            >
+              {['all', ...categories].map((value) => (
+                <button
+                  key={value}
+                  aria-pressed={category === value}
+                  onClick={() => setCategory(value)}
+                  className={`rounded-lg px-4 py-2.5 text-xs font-medium transition-colors ${category === value ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:border-ok'}`}
+                >
+                  {value === 'all' ? 'All categories' : categoryName(value)}
+                </button>
+              ))}
+            </div>
+            <label className="flex min-w-52 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-muted-foreground">
+              <Search size={15} />
+              <input
+                aria-label="Search courses"
+                placeholder="Search courses…"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="w-44 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/70"
+              />
+            </label>
           </div>
-          <label className="flex min-w-52 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-muted-foreground">
-            <Search size={15} />
-            <input
-              aria-label="Search courses"
-              placeholder="Search courses…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className="w-44 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/70"
-            />
-          </label>
-        </div>
+        )}
 
         {loading ? (
           <div
@@ -159,6 +193,45 @@ export function CourseCatalog({
               className="mt-5 rounded-lg bg-primary px-5 py-2.5 text-sm text-primary-foreground"
             >
               Try again
+            </button>
+          </div>
+        ) : tab === 'mine' && !signedIn ? (
+          <div
+            role="status"
+            className="rounded-2xl border border-dashed border-border bg-card/50 px-6 py-14 text-center"
+          >
+            <UserRound className="mx-auto mb-4 text-ok" size={28} />
+            <h3 className="font-semibold">Sign in to see your courses</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your enrolled courses and progress will appear here.
+            </p>
+            <button
+              onClick={onSignIn}
+              className="mt-5 rounded-lg bg-primary px-5 py-2.5 text-sm text-primary-foreground"
+            >
+              Sign in
+            </button>
+          </div>
+        ) : tab === 'mine' && !visible.length ? (
+          <div
+            role="status"
+            className="rounded-2xl border border-dashed border-border bg-card/50 px-6 py-14 text-center"
+          >
+            <BookOpen className="mx-auto mb-4 text-ok" size={28} />
+            <h3 className="font-semibold">You have not joined a course yet</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Pick one from the list. If a mentor sent you a link, open it to
+              join.
+            </p>
+            <button
+              onClick={() => {
+                setTab('all');
+                setQuery('');
+                setCategory('all');
+              }}
+              className="mt-5 rounded-lg bg-primary px-5 py-2.5 text-sm text-primary-foreground"
+            >
+              Browse courses
             </button>
           </div>
         ) : !visible.length ? (
@@ -203,7 +276,7 @@ export function CourseCatalog({
         )}
         <p aria-live="polite" className="mt-6 text-xs text-muted-foreground">
           {!loading && !error
-            ? `${visible.length} ${visible.length === 1 ? 'course' : 'courses'} available${query || category !== 'all' ? ' with these filters' : ' to explore'}`
+            ? `${visible.length} ${visible.length === 1 ? 'course' : 'courses'} ${tab === 'mine' ? 'in your library' : query || category !== 'all' ? 'available with these filters' : 'available to explore'}`
             : '\u00a0'}
         </p>
       </section>
