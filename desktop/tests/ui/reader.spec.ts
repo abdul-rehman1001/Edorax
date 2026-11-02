@@ -7,9 +7,19 @@ const document = parseLesson(`# Native lesson
 Learn by testing one change at a time.
 
 <Quiz id="question-one" />`);
-test('native reader submits quizzes, saves completion, enforces locks and signs out', async ({
+for (const muted of [false, true]) {
+test(`native reader submits quizzes, completes chapters and respects sound mute=${muted}`, async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.addInitScript((muted) => {
+    localStorage.setItem('buildment:sound', muted ? 'off' : 'on');
+    (window as any).feedbackSounds = [];
+    HTMLMediaElement.prototype.play = function () {
+      (window as any).feedbackSounds.push(this.src);
+      return Promise.resolve();
+    };
+  }, muted);
   await page.addInitScript(
     ({ courses, courseDetail, document }) => {
       let passed = false;
@@ -42,6 +52,7 @@ test('native reader submits quizzes, saves completion, enforces locks and signs 
           },
         ];
       window.buildment = {
+        ...window.buildment,
         webOrigin: async () => 'https://edorax.com',
         integrityRequest: async (path, _method, body) => {
           if (path.endsWith('/integrity'))
@@ -287,6 +298,7 @@ test('native reader submits quizzes, saves completion, enforces locks and signs 
     .click();
   await page.getByRole('button', { name: 'Submit quiz', exact: true }).click();
   await expect(page.getByText('Quiz score: 0 / 1')).toBeVisible();
+  if (!muted) expect(await page.evaluate(() => (window as any).feedbackSounds)).toEqual([expect.stringContaining('error.wav')]);
   await expect(
     page.getByRole('button', { name: 'Mark lesson complete' }),
   ).toBeDisabled();
@@ -295,10 +307,18 @@ test('native reader submits quizzes, saves completion, enforces locks and signs 
     .click();
   await page.getByRole('button', { name: 'Submit again', exact: true }).click();
   await expect(page.getByText('Quiz score: 1 / 1')).toBeVisible();
+  if (!muted) expect(await page.evaluate(() => (window as any).feedbackSounds)).toEqual([expect.stringContaining('error.wav'), expect.stringContaining('celebration.wav')]);
   await page.getByRole('button', { name: 'Mark lesson complete' }).click();
   await expect(
     page.getByRole('button', { name: 'Lesson completed' }),
   ).toBeDisabled();
+  const sounds: string[] = await page.evaluate(() => (window as any).feedbackSounds);
+  expect(sounds).toEqual(muted ? [] : [expect.stringContaining('error.wav'), expect.stringContaining('celebration.wav'), expect.stringContaining('completion.wav')]);
+  for (const url of sounds) {
+    const response = await page.request.get(url);
+    expect(response.ok()).toBe(true);
+    expect((await response.body()).subarray(0, 4).toString()).toBe('RIFF');
+  }
   await page.screenshot({
     path: 'test-results/native-reader.png',
     fullPage: true,
@@ -312,3 +332,5 @@ test('native reader submits quizzes, saves completion, enforces locks and signs 
     page.getByRole('button', { name: 'Sign in', exact: true }),
   ).toBeVisible();
 });
+
+}

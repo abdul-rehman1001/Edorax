@@ -1,6 +1,7 @@
 import { CourseLink } from '@buildment/learning-ui/components/learn/course-navigation';
 import { cloneElement, createElement, isValidElement } from 'react';
 import type { Lesson, LessonNode } from '../../domain/learning';
+import { LessonSnippet } from '../labs/LessonSnippet';
 import { Exercise } from './Exercise';
 import { lessonBlocks } from './blocks/registry';
 import { lessonAsset } from './blocks/assets';
@@ -66,9 +67,10 @@ export function LessonContent(props: Props): React.ReactNode {
     return <code className="rounded bg-muted px-1 py-0.5">{node.value}</code>;
   if (node.type === 'code')
     return (
-      <pre className="my-6 overflow-x-auto rounded-xl border border-border bg-muted p-5 text-[14px] leading-7">
-        <code>{node.value}</code>
-      </pre>
+      <LessonSnippet
+        source={node.value || ''}
+        language={node.lang || 'plaintext'}
+      />
     );
   if (node.type === 'blockquote')
     return (

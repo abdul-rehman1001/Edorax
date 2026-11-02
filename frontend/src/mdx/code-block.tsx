@@ -2,6 +2,7 @@
 
 import { useRef, type ComponentProps } from "react";
 import { cn } from "@/lib/utils";
+import { CodeToolbar } from "@buildment/learning-ui/components/learn/code-toolbar";
 import { CopyCodeButton } from "@/mdx/copy-code-button";
 
 type CodeProps = ComponentProps<"code"> & {
@@ -16,31 +17,6 @@ type PreProps = ComponentProps<"pre"> & {
 type FigureProps = ComponentProps<"figure"> & {
   "data-rehype-pretty-code-figure"?: string;
 };
-
-const LANGUAGE_LABEL: Record<string, string> = {
-  js: "JavaScript",
-  javascript: "JavaScript",
-  ts: "TypeScript",
-  typescript: "TypeScript",
-  tsx: "TSX",
-  jsx: "JSX",
-  bash: "Shell",
-  sh: "Shell",
-  shell: "Shell",
-  json: "JSON",
-  md: "Markdown",
-  mdx: "MDX",
-  css: "CSS",
-  html: "HTML",
-  plaintext: "Text",
-  text: "Text",
-  txt: "Text",
-};
-
-function formatLanguage(lang: string) {
-  const key = lang.toLowerCase();
-  return LANGUAGE_LABEL[key] ?? lang.toUpperCase();
-}
 
 function isPrettyFigure(className: string | undefined, props: FigureProps) {
   if (props["data-rehype-pretty-code-figure"] != null) return true;
@@ -60,7 +36,10 @@ export function MdxCodeFigure({ className, children, ...props }: FigureProps) {
 
   return (
     <figure
-      className={cn("not-prose shiki-figure my-6 overflow-hidden rounded-xl border shadow-sm", className)}
+      className={cn(
+        "not-prose shiki-figure my-6 overflow-hidden rounded-xl border shadow-sm",
+        className,
+      )}
       {...props}
     >
       {children}
@@ -76,17 +55,12 @@ export function MdxCodePre({ className, children, ...props }: PreProps) {
   if (language) {
     return (
       <>
-        <div className="code-block-toolbar flex items-center justify-between gap-2 border-b px-4 py-2.5">
-          <span className="code-block-lang font-mono text-[11px] font-semibold uppercase tracking-wider">
-            {formatLanguage(language)}
-          </span>
-          <CopyCodeButton getText={getCodeText} />
-        </div>
+        <CodeToolbar language={language} getText={getCodeText} />
         <pre
           ref={preRef}
           className={cn(
             "code-block-pre m-0 overflow-x-auto px-4 py-4 font-mono text-[0.8125rem] leading-[1.7]",
-            className
+            className,
           )}
           tabIndex={0}
           {...props}
@@ -103,7 +77,7 @@ export function MdxCodePre({ className, children, ...props }: PreProps) {
       className={cn(
         "not-prose my-6 overflow-hidden rounded-xl border border-border bg-muted shadow-sm",
         "[&_code]:block [&_code]:whitespace-pre [&_code]:bg-transparent [&_code]:p-0",
-        "[&_code]:font-mono [&_code]:text-[0.8125rem] [&_code]:leading-relaxed"
+        "[&_code]:font-mono [&_code]:text-[0.8125rem] [&_code]:leading-relaxed",
       )}
     >
       {dataMeta ? (
@@ -118,7 +92,10 @@ export function MdxCodePre({ className, children, ...props }: PreProps) {
       )}
       <pre
         ref={preRef}
-        className={cn("m-0 overflow-x-auto p-4 font-mono text-[0.8125rem] leading-relaxed", className)}
+        className={cn(
+          "m-0 overflow-x-auto p-4 font-mono text-[0.8125rem] leading-relaxed",
+          className,
+        )}
         {...props}
       >
         {children}
@@ -136,7 +113,7 @@ export function MdxCodeElement({ className, children, style, ...props }: CodePro
         className={cn(
           "shiki-code block min-w-full font-mono text-[0.8125rem] leading-[1.7]",
           "bg-transparent p-0 before:content-none after:content-none",
-          className
+          className,
         )}
         style={style}
         {...props}
@@ -153,7 +130,7 @@ export function MdxCodeElement({ className, children, style, ...props }: CodePro
         className={cn(
           "block whitespace-pre font-mono text-[0.875em] font-normal leading-relaxed",
           "bg-transparent p-0 before:content-none after:content-none",
-          className
+          className,
         )}
         style={style}
         {...props}

@@ -1,3 +1,4 @@
+import { preparePty } from './scripts/prepare-pty.mjs';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
@@ -8,11 +9,27 @@ import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
+  hooks: {
+    generateAssets: async () => {
+      await preparePty();
+    },
+  },
   packagerConfig: {
-    asar: true,
+    asar: { unpack: '**/node_modules/node-pty/**' },
+    // Vite bundles application code; retain the native PTY module for rebuilding.
+    ignore: (file) =>
+      Boolean(file) &&
+      !file.startsWith('/.vite') &&
+      file !== '/node_modules' &&
+      !file.startsWith('/node_modules/node-pty') &&
+      !file.startsWith('/node_modules/node-addon-api'),
     name: 'Edorax',
     icon: './assets/edorax',
-    extraResource: ['./assets/edorax.png', './assets/edorax-dock.png'],
+    extraResource: [
+      './assets/edorax.png',
+      './assets/edorax-dock.png',
+      './ide',
+    ],
   },
   rebuildConfig: {},
   makers: [

@@ -20,13 +20,25 @@ export function parseLesson(source: string): LessonNode {
   const body = restoreInteractiveBlockTags(chapterBodyForReader(source));
   const tree = parser.runSync(parser.parse(body));
   function clean(node: any): LessonNode {
-    if (node.type === 'code' && (node.lang === 'canvas' || node.lang === 'lab') && typeof node.value === 'string') {
+    if (
+      node.type === 'code' &&
+      (node.lang === 'canvas' || node.lang === 'lab') &&
+      typeof node.value === 'string'
+    ) {
       try {
         const parsed = JSON.parse(node.value);
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          const { renderer, version, presentation, data: nestedData, ...rest } = parsed as Record<string, unknown>;
+          const {
+            renderer,
+            version,
+            presentation,
+            data: nestedData,
+            ...rest
+          } = parsed as Record<string, unknown>;
           const payload =
-            nestedData && typeof nestedData === 'object' && !Array.isArray(nestedData)
+            nestedData &&
+            typeof nestedData === 'object' &&
+            !Array.isArray(nestedData)
               ? { ...rest, ...(nestedData as Record<string, unknown>) }
               : rest;
           if (node.lang === 'canvas' && typeof renderer === 'string') {
@@ -36,7 +48,9 @@ export function parseLesson(source: string): LessonNode {
               attributes: {
                 renderer,
                 ...(typeof version === 'number' ? { version } : {}),
-                ...(presentation && typeof presentation === 'object' ? { presentation } : {}),
+                ...(presentation && typeof presentation === 'object'
+                  ? { presentation }
+                  : {}),
                 data: payload,
               },
             };
@@ -47,7 +61,9 @@ export function parseLesson(source: string): LessonNode {
               name: 'Lab',
               attributes: {
                 ...(typeof version === 'number' ? { version } : {}),
-                ...(presentation && typeof presentation === 'object' ? { presentation } : {}),
+                ...(presentation && typeof presentation === 'object'
+                  ? { presentation }
+                  : {}),
                 spec: payload,
               },
             };
@@ -58,7 +74,15 @@ export function parseLesson(source: string): LessonNode {
       }
     }
     const result: LessonNode = { type: node.type };
-    for (const key of ['value', 'name', 'depth', 'url', 'ordered'] as const) {
+    for (const key of [
+      'value',
+      'name',
+      'depth',
+      'url',
+      'ordered',
+      'lang',
+      'meta',
+    ] as const) {
       if (node[key] !== undefined) (result as any)[key] = node[key];
     }
     if (node.attributes) {

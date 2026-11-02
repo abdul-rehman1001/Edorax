@@ -1,3 +1,4 @@
+import { playFeedback } from '../../../lib/sound-feedback';
 import { useEffect, useRef, useState } from 'react';
 import type { QuizChapterState } from '../../../../../server/src/shared/api/blocks';
 import { useQuizIntegrity } from '@buildment/learning-ui/lib/integrity/use-quiz-integrity';
@@ -96,6 +97,7 @@ export function QuizSession({
         payload,
       );
       if (!result.ok) {
+        playFeedback('error');
         setError(result.message);
         return;
       }
@@ -103,12 +105,19 @@ export function QuizSession({
         score: number;
         maxScore: number;
         questions: number;
+        assessment?: { passed: boolean };
         grades?: Array<{
           blockId: string;
           selected: string[];
           isCorrect: boolean | null;
         }>;
       };
+      if (
+        data.assessment?.passed ||
+        (data.maxScore > 0 && data.score === data.maxScore)
+      )
+        playFeedback('celebration');
+      else if (data.score <= 0) playFeedback('error');
       setScore({
         score: data.score,
         maxScore: data.maxScore,
@@ -137,6 +146,7 @@ export function QuizSession({
       else if (!allCorrect) void integrity.nextAttempt();
       onSaved();
     } catch {
+      playFeedback('error');
       setError(
         'Could not submit your quiz. Your answers are still here. Please retry.',
       );

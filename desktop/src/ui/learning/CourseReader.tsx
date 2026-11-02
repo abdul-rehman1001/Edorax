@@ -1,5 +1,12 @@
+import {
+  CourseIDEProvider,
+  CourseIDEPanel,
+  OpenIDEButton,
+  useCourseIDE,
+} from '../labs/CourseIDE';
+import { playFeedback } from '../../lib/sound-feedback';
 import { DesktopToolbar } from '../layout/DesktopToolbar';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Lesson } from '../../domain/learning';
 import type { QuizChapterState } from '../../../../server/src/shared/api/blocks';
 import { LessonContent } from './LessonContent';
@@ -8,6 +15,7 @@ import { QuizSession } from './quiz/QuizSession';
 import { AccountMenu } from '../auth/AccountMenu';
 import type { Session } from '../auth/useSession';
 import { ArrowLeft } from 'lucide-react';
+import { ResizeDivider, loadPaneWidth } from '../labs/ResizeDivider';
 import {
   ChapterSidebar,
   SidebarToggle,
@@ -24,7 +32,14 @@ import {
 import { lessonHeadings } from './lesson-headings';
 import { LessonLoading } from './LessonLoading';
 
-export function CourseReader({
+export function CourseReader(props: Parameters<typeof CourseReaderBody>[0]) {
+  return (
+    <CourseIDEProvider key={props.courseSlug}>
+      <CourseReaderBody {...props} />
+    </CourseIDEProvider>
+  );
+}
+function CourseReaderBody({
   courseSlug,
   courseTitle,
   initialChapter,
@@ -39,6 +54,7 @@ export function CourseReader({
   onSignedOut: () => void;
   session: Session;
 }) {
+  const ide = useCourseIDE();
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,6 +63,11 @@ export function CourseReader({
   const [sidebarClosed, setSidebarClosed] = useState(false);
   const [tocClosed, setTocClosed] = useState(false);
   const [smallWindow, setSmallWindow] = useState(() => window.innerWidth < 768);
+  const [idePaneWidth, setIdePaneWidth] = useState(loadPaneWidth);
+  const handleResize = useCallback(
+    (percent: number) => setIdePaneWidth(percent),
+    [],
+  );
   const annotated = useMemo(
     () => (lesson ? lessonHeadings(lesson.document) : null),
     [lesson?.document],
@@ -178,7 +199,10 @@ export function CourseReader({
         lesson.chapter.id,
       );
       if (!result.ok) fail(result);
-      else await load(lesson.chapter.slug, true);
+      else {
+        playFeedback('completion');
+        await load(lesson.chapter.slug, true);
+      }
     } catch {
       setError('Could not save lesson completion. Try again.');
     } finally {
@@ -192,40 +216,43 @@ export function CourseReader({
     <CourseNavigationProvider onNavigate={navigate}>
       <VariantThemeScope variant={variantForTrack(lesson?.track ?? null)}>
         <div className="course-overview-surface flex h-full flex-col overflow-hidden bg-background">
-          <DesktopToolbar>
-            <div className="flex min-w-0 items-center gap-2">
-              <SidebarToggle
-                collapsed={sidebarClosed}
-                onClick={() => setSidebarClosed(!sidebarClosed)}
-              />
-              <button
-                aria-label="Back to course preview"
-                title="Back to course preview"
-                onClick={onBack}
-                className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <ArrowLeft size={16} />
-                <span>Course</span>
-              </button>
-              <div className="min-w-0 border-l border-border pl-3">
-                <p className="truncate text-[11px] font-medium text-muted-foreground">
-                  {lesson?.course.title || courseTitle}
-                </p>
-                <p className="truncate text-[13px] font-semibold">
-                  {lesson?.chapter.title || 'Loading lesson…'}
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {showHeadings && Boolean(annotated?.headings.length) && (
-                <TocToggle
-                  collapsed={tocClosed}
-                  onClick={() => setTocClosed(!tocClosed)}
+          {!ide.focused && (
+            <DesktopToolbar>
+              <div className="flex min-w-0 items-center gap-2">
+                <SidebarToggle
+                  collapsed={sidebarClosed}
+                  onClick={() => setSidebarClosed(!sidebarClosed)}
                 />
-              )}
-              <AccountMenu session={session} />
-            </div>
-          </DesktopToolbar>
+                <button
+                  aria-label="Back to course preview"
+                  title="Back to course preview"
+                  onClick={onBack}
+                  className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <ArrowLeft size={16} />
+                  <span>Course</span>
+                </button>
+                <div className="min-w-0 border-l border-border pl-3">
+                  <p className="truncate text-[11px] font-medium text-muted-foreground">
+                    {lesson?.course.title || courseTitle}
+                  </p>
+                  <p className="truncate text-[13px] font-semibold">
+                    {lesson?.chapter.title || 'Loading lesson…'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {showHeadings && Boolean(annotated?.headings.length) && (
+                  <TocToggle
+                    collapsed={tocClosed}
+                    onClick={() => setTocClosed(!tocClosed)}
+                  />
+                )}
+                <OpenIDEButton />
+                <AccountMenu session={session} />
+              </div>
+            </DesktopToolbar>
+          )}
           {session.authError && (
             <p role="alert" className="m-5 rounded border border-border p-4">
               {session.authError}
@@ -250,17 +277,19 @@ export function CourseReader({
           {loading && <LessonLoading />}
           {lesson && !loading && (
             <div className="flex min-h-0 flex-1 overflow-hidden">
-              <ChapterSidebar
-                courseSlug={courseSlug}
-                courseTitle={lesson.course.title}
-                modules={lesson.modules}
-                currentChapterSlug={lesson.chapter.slug}
-                collapsed={sidebarClosed}
-                mobileSheet={smallWindow}
-                onToggle={() => setSidebarClosed(true)}
-              />
+              <div className={ide.open ? 'hidden' : 'contents'}>
+                <ChapterSidebar
+                  courseSlug={courseSlug}
+                  courseTitle={lesson.course.title}
+                  modules={lesson.modules}
+                  currentChapterSlug={lesson.chapter.slug}
+                  collapsed={sidebarClosed}
+                  mobileSheet={smallWindow}
+                  onToggle={() => setSidebarClosed(true)}
+                />
+              </div>
               <div
-                className="min-w-0 flex-1 overflow-y-auto"
+                className={`${ide.open && (ide.focused || smallWindow) ? 'hidden' : ''} min-w-0 flex-1 overflow-y-auto`}
                 key={lesson.chapter.id}
               >
                 <article className="mx-auto w-full min-w-0 max-w-[860px] px-7 py-10 lg:px-12 lg:py-14">
@@ -382,7 +411,7 @@ export function CourseReader({
                   )}
                 </article>
               </div>
-              {showHeadings && (
+              {showHeadings && !ide.open && (
                 <ChapterToc
                   headings={annotated?.headings || []}
                   collapsed={tocClosed}
@@ -390,6 +419,15 @@ export function CourseReader({
                   onToggle={() => setTocClosed(true)}
                 />
               )}
+              {ide.open && !ide.focused && !smallWindow && (
+                <ResizeDivider onResize={handleResize} />
+              )}
+              <CourseIDEPanel
+                courseSlug={courseSlug}
+                courseTitle={courseTitle}
+                smallWindow={smallWindow}
+                widthPercent={idePaneWidth}
+              />
             </div>
           )}
         </div>

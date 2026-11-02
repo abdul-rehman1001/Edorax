@@ -1,10 +1,33 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 export function useSession() {
   const [signedIn, setSignedIn] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authRevision, setAuthRevision] = useState(0);
+  const [authChecked, setAuthChecked] = useState(false);
   const authPending = useRef(false);
+  useEffect(() => {
+    let alive = true;
+    const finish = () => {
+      if (alive) setAuthChecked(true);
+    };
+    const check = window.buildment.authStatus?.();
+    if (!check) {
+      finish();
+      return;
+    }
+    void check
+      .then((result) => {
+        if (!alive || !result.ok || !result.data.signedIn) return;
+        setSignedIn(true);
+        setAuthRevision((value) => value + 1);
+      })
+      .catch(() => {})
+      .finally(finish);
+    return () => {
+      alive = false;
+    };
+  }, []);
   async function changeSession(signingIn: boolean) {
     if (authPending.current) return;
     authPending.current = true;

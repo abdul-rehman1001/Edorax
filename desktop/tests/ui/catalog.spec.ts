@@ -23,7 +23,9 @@ test('catalog search, categories, and sidebar work', async ({ page }) => {
   await expect(page.locator('article')).toHaveCount(2);
   await page.getByRole('button', { name: 'Soft Skills', exact: true }).click();
   await expect(page.locator('article')).toHaveCount(1);
-  await page.getByRole('button', { name: 'All courses', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'All categories', exact: true })
+    .click();
   await page
     .getByRole('textbox', { name: 'Search courses' })
     .fill('nothing matches');

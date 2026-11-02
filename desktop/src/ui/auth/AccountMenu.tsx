@@ -1,7 +1,26 @@
+import { useEffect, useState } from 'react';
 import { UserRound, LogOut } from 'lucide-react';
+import type { LearnerProfile } from '../../../../server/src/shared/api/learner';
 import type { Session } from './useSession';
 export function AccountMenu({ session }: { session: Session }) {
   const { signedIn, authBusy, changeSession } = session;
+  const [profile, setProfile] = useState<LearnerProfile | null>(null);
+  useEffect(() => {
+    if (!signedIn) {
+      setProfile(null);
+      return;
+    }
+    let alive = true;
+    void window.buildment
+      .learnerProfile()
+      .then((result) => {
+        if (alive && result.ok) setProfile(result.data);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [signedIn]);
   return (
     <div className="relative shrink-0">
       {signedIn ? (
@@ -9,10 +28,17 @@ export function AccountMenu({ session }: { session: Session }) {
           <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2.5 py-1.5 hover:bg-muted text-xs font-medium [&::-webkit-details-marker]:hidden">
             <UserRound size={16} /> Profile
           </summary>
-          <div className="absolute right-0 top-12 w-52 rounded-xl border border-border bg-card p-3 shadow-lg">
-            <p className="px-2 py-2 text-xs text-muted-foreground">
-              Connected to Edorax
-            </p>
+          <div className="absolute right-0 top-12 w-64 rounded-xl border border-border bg-card p-3 shadow-lg">
+            <div className="px-2 py-2">
+              <p className="truncate text-sm font-semibold">
+                {profile?.name || profile?.email || 'Edorax account'}
+              </p>
+              {profile?.email && (
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {profile.email}
+                </p>
+              )}
+            </div>
             <button
               disabled={authBusy}
               onClick={() => void changeSession(false)}

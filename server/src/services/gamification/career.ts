@@ -19,12 +19,15 @@ type Db = Prisma.TransactionClient | typeof prisma;
 
 async function computeCareerMastery(db: Db, userId: string): Promise<CareerMastery> {
   const [completedCourses, scores] = await Promise.all([
+    // A course counts as mastered when it is content-complete (status COMPLETED, percentComplete 100)
+    // — the same signal the course_completed XP/credit hook uses. `lifecycle` is a separate concept
+    // that stays ACTIVE for a finished course, so it must not gate the career.
     db.enrollment.count({
-      where: { userId, lifecycle: "COMPLETED", status: { not: "DROPPED" } },
+      where: { userId, status: "COMPLETED" },
     }),
     db.chapterProgress.findMany({
       where: {
-        enrollment: { userId, lifecycle: "COMPLETED", status: { not: "DROPPED" } },
+        enrollment: { userId, status: "COMPLETED" },
         status: "COMPLETED",
         maxScore: { gt: 0 },
       },

@@ -1,0 +1,6 @@
+{
+  "name": "edorax-ide-extension",
+  "version": "0.1.0",
+  "private": true,
+  "theiaExtensions": [{"frontend": "lib/browser/edorax-module", "backend": "lib/node/edorax-module"}]
+}

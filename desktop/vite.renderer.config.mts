@@ -15,6 +15,20 @@ export default defineConfig({
   // dependencies so CommonJS internals never reach the dev browser unchanged.
   optimizeDeps: {
     include: [
+      'shiki/bundle/web',
+      'shiki/engine/javascript',
+      'monaco-editor/languages/definitions/typescript/register',
+      'monaco-editor/languages/definitions/python/register',
+      'monaco-editor/languages/definitions/shell/register',
+      'monaco-editor/languages/definitions/html/register',
+      'monaco-editor/languages/definitions/css/register',
+      'monaco-editor/languages/definitions/yaml/register',
+      '@xterm/xterm',
+      '@xterm/addon-fit',
+      'monaco-editor/editor/editor.api',
+      'monaco-editor/languages/definitions/javascript/register',
+      'monaco-editor/language/json/monaco.contribution',
+      'monaco-editor/languages/definitions/markdown/register',
       'react',
       'react-dom',
       'react-dom/client',
