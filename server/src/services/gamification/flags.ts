@@ -9,6 +9,7 @@ export function gamificationFeatures(): GamificationFeatures {
     streakFreezes: env.GAMIFICATION_STREAK_FREEZES,
     levels: xp && env.GAMIFICATION_LEVELS,
     career: xp && env.GAMIFICATION_CAREER_LEVELS,
+    credits: xp && env.GAMIFICATION_CREDITS,
     leaderboards: xp && env.GAMIFICATION_LEADERBOARDS,
   };
 }

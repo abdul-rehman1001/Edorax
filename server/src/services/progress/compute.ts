@@ -12,6 +12,8 @@ import { milestoneReflectionBlocked } from "./reflection.js";
 import { notifyCourseCompleted } from "../notifications/events.js";
 import { awardChapterCompletionXp, awardXp } from "../gamification/xp.js";
 import { xpKeys } from "../../shared/gamification/xp.js";
+import { gamificationFeatures } from "../gamification/flags.js";
+import { COURSE_COMPLETED_CREDITS, creditKeys, earnCredits } from "../gamification/credits.js";
 import { calculateQuizAssessment } from "./quiz-assessment.js";
 
 // Recomputes denormalized rollups after a new Response is written — see
@@ -236,6 +238,9 @@ export async function recomputeEnrollmentRollup(
         source: "course_completed",
         sourceKey: xpKeys.course(enrollment.courseId),
       });
+      if (gamificationFeatures().credits) {
+        await earnCredits(tx, enrollment.userId, creditKeys.courseCompleted(enrollment.courseId), COURSE_COMPLETED_CREDITS);
+      }
     }
   }
 }

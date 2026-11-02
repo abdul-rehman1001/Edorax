@@ -4,6 +4,8 @@ import { LEAGUE_TIERS, type LeagueOutcome, type LeagueTier } from "../../shared/
 import { dateToDayKey, dayKeyToDate, shiftDayKey } from "../../shared/lib/local-date.js";
 import { leagueDemotionZone, leaguePromotionZone, nextLeagueTier, prevLeagueTier } from "../../shared/gamification/leagues.js";
 import { currentLeaderboardWeek, loadListableLearners } from "./leaderboard.js";
+import { gamificationFeatures } from "./flags.js";
+import { LEAGUE_PROMOTION_CREDITS, creditKeys, earnCredits } from "./credits.js";
 
 // Global weekly XP leagues. Every opted-in learner sits in a tier (Bronze → Diamond); at the
 // Monday 00:00 UTC reset the week's global XP ranks each tier, the top 10% promote and the bottom
@@ -55,6 +57,7 @@ export async function resetLeaguesForWeek(weekKey: Date): Promise<LeagueResetRes
 
     const placements: Prisma.LeaguePlacementCreateManyInput[] = [];
     const moves = new Map<LeagueTier, string[]>();
+    const promoted: string[] = [];
     for (const [tier, rows] of byTier) {
       rows.sort((a, b) => b.xp - a.xp || a.createdAt.getTime() - b.createdAt.getTime());
       const promotionZone = leaguePromotionZone(rows.length);
@@ -73,6 +76,7 @@ export async function resetLeaguesForWeek(weekKey: Date): Promise<LeagueResetRes
         if (outcome === "PROMOTED") result.promoted += 1;
         else if (outcome === "DEMOTED") result.demoted += 1;
         else result.held += 1;
+        if (outcome === "PROMOTED") promoted.push(row.userId);
         placements.push({ userId: row.userId, weekKey, tier, rank, xp: row.xp, outcome });
         if (tierAfter !== tier) {
           const ids = moves.get(tierAfter) ?? [];
@@ -87,6 +91,13 @@ export async function resetLeaguesForWeek(weekKey: Date): Promise<LeagueResetRes
     }
     if (placements.length > 0) {
       await tx.leaguePlacement.createMany({ data: placements });
+    }
+    // A promoted learner earns Build Credits; keyed by week so each promotion pays once.
+    if (gamificationFeatures().credits && promoted.length > 0) {
+      const weekKeyStr = dateToDayKey(weekKey);
+      for (const userId of promoted) {
+        await earnCredits(tx, userId, creditKeys.leaguePromotion(weekKeyStr), LEAGUE_PROMOTION_CREDITS);
+      }
     }
     return result;
   });

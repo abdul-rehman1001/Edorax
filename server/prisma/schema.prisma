@@ -254,6 +254,8 @@ model User {
   celebratedStreakMilestones Int[] @default([])
   /// Cached sum of XpEntry.amount; the ledger is the source of truth.
   xpTotal       Int          @default(0)
+  /// Cached build-credit balance; the CreditEntry ledger is the source of truth.
+  buildCredits  Int          @default(0)
   /// Streak freezes held, 0..2 (shared/lib/streak.ts MAX_STREAK_FREEZES).
   streakFreezes Int          @default(0)
   /// "Hide game elements": no XP, levels, freezes or leaderboards shown, and off every board.
@@ -297,6 +299,7 @@ model User {
   leaderboardPlacements         LeaderboardPlacement[]
   leaguePlacements              LeaguePlacement[]
   couponUsages                  CouponUsage[]
+  creditEntries                 CreditEntry[]
 }
 
 /// A learner's own AI provider key for AI interviews. Only the AES-256-GCM
@@ -430,6 +433,20 @@ model Course {
   @@index([mentorId, status])
   leaderboardGroups     LeaderboardGroup[]
   leaderboardPlacements LeaderboardPlacement[]
+}
+
+model CreditEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source    String
+  /// Uniquely identifies one earn, so a retry/recompute never pays twice.
+  sourceKey String
+  amount    Int
+  createdAt DateTime @default(now())
+
+  @@unique([userId, sourceKey])
+  @@index([userId, createdAt])
 }
 
 model CourseInstructor {

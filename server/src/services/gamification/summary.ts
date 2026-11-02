@@ -7,6 +7,7 @@ import { learnerTimeZone } from "../learner/time-zone.js";
 import { gamificationFeatures } from "./flags.js";
 import { currentLeaderboardWeek, leaveCurrentBoards, loadTopThreeFinishes } from "./leaderboard.js";
 import { loadCareerProgress } from "./career.js";
+import { creditBalance } from "./credits.js";
 
 /** What the learner's dashboard shows for XP, level and freezes. Switched-off parts are null. */
 export async function loadGamificationSummary(userId: string, now: Date = new Date()): Promise<GamificationSummary> {
@@ -35,6 +36,7 @@ export async function loadGamificationSummary(userId: string, now: Date = new Da
 
   const total = Math.max(0, user?.xpTotal ?? 0);
   const career = features.career ? await loadCareerProgress(userId) : null;
+  const credits = features.credits ? { balance: await creditBalance(userId) } : null;
   return {
     features,
     hidden: user?.gamificationHidden ?? false,
@@ -42,6 +44,7 @@ export async function loadGamificationSummary(userId: string, now: Date = new Da
     xp: features.xp ? { total, thisWeek: Math.max(0, week?._sum.amount ?? 0) } : null,
     level: features.levels ? levelProgress(total) : null,
     career,
+    credits,
     freezes: features.streakFreezes
       ? {
           available: Math.min(MAX_STREAK_FREEZES, Math.max(0, user?.streakFreezes ?? 0)),
