@@ -27,6 +27,8 @@ router.get("/progress", learner.progress);
 router.put("/weekly-goal", validateBody(weeklyGoalBody), learner.putWeeklyGoal);
 router.delete("/weekly-goal", learner.deleteWeeklyGoal);
 router.post("/streak-milestones/:milestone/acknowledge", validateParams(streakMilestoneParams), learner.acknowledgeStreakMilestone);
+router.get("/streak-popup", learner.streakPopup);
+router.post("/streak-popup/dismiss", learner.dismissStreakPopupHandler);
 router.get("/gamification", learner.gamification);
 router.patch("/gamification", validateBody(gamificationPreferencesBody), learner.patchGamification);
 router.get("/leaderboard", validateQuery(leaderboardQuery), learner.leaderboard);

@@ -251,6 +251,8 @@ model User {
   weeklyGoalNote String? @db.VarChar(240)
   weeklyGoalReminderEnabled Boolean @default(false)
   weeklyGoalReminderSentOn DateTime? @db.Date
+  /// Local calendar day the learner last dismissed the daily streak popup.
+  streakPopupSeenOn DateTime? @db.Date
   celebratedStreakMilestones Int[] @default([])
   /// Cached sum of XpEntry.amount; the ledger is the source of truth.
   xpTotal       Int          @default(0)
