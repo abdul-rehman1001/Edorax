@@ -87,7 +87,7 @@ const schema = z.object({
     .transform((value) => value === "true"),
   LEARNER_QA_MODEL: z.string().trim().min(1).default("claude-haiku-5-5"),
   /** Questions one learner may ask per UTC day. */
-  LEARNER_QA_DAILY_LIMIT: z.coerce.number().int().min(1).max(500).default(20),
+  LEARNER_QA_DAILY_LIMIT: z.coerce.number().int().min(1).max(500).default(80),
   /** Questions the whole platform may answer per UTC day, the cap on the Anthropic bill. */
   LEARNER_QA_GLOBAL_DAILY_LIMIT: z.coerce.number().int().min(1).max(100_000).default(500),
 

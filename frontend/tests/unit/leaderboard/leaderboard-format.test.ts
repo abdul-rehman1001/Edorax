@@ -15,7 +15,7 @@ describe("leaderboard formatting", () => {
   });
 
   it("computes reset labels", () => {
-    const future = new Date(Date.now() + 2 * 86_400_000).toISOString();
+    const future = new Date(Date.now() + 2 * 86_400_000 + 60_000).toISOString();
     expect(resetLabel(future)).toContain("2 days");
   });
 });
