@@ -90,7 +90,7 @@ function LastWeekWinners({ winners }: { winners: LeaderboardEntry[] }) {
             </span>
             <span className={cn("mt-1.5 w-full truncate text-xs", winner.isYou ? "font-semibold" : "font-medium")}>
               <span className="sr-only">Place {winner.rank}: </span>
-              {winner.isYou ? "You" : winner.name}
+              {winner.isYou ? (winner.name ? `${winner.name} (You)` : "You") : winner.name}
             </span>
             <span className="text-xs tabular-nums text-muted-foreground">{numberFormat.format(winner.xp)} XP</span>
           </li>
@@ -215,7 +215,7 @@ export function LeaderboardCard({
                   className={cn("flex items-center gap-3 px-3 py-2 text-sm", entry.isYou && "bg-muted/60 font-medium")}
                 >
                   <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">{entry.rank}</span>
-                  <span className="min-w-0 flex-1 truncate">{entry.isYou ? "You" : entry.name}</span>
+                  <span className="min-w-0 flex-1 truncate">{entry.isYou ? (entry.name ? `${entry.name} (You)` : "You") : entry.name}</span>
                   <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{numberFormat.format(entry.xp)} XP</span>
                 </li>
               ))}

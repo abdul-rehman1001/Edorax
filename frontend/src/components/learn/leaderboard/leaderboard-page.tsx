@@ -113,7 +113,7 @@ function LastWeekWinners({ winners, metricLabel }: { winners: LeaderboardHubEntr
             </span>
             <span className={cn("mt-3 w-full truncate text-sm", winner.isYou ? "font-semibold" : "font-medium")}>
               <span className="sr-only">Place {winner.rank}: </span>
-              {winner.isYou ? "You" : winner.name}
+              {winner.isYou ? (winner.name ? `${winner.name} (You)` : "You") : winner.name}
             </span>
             <span className="mt-1 text-sm tabular-nums text-muted-foreground">
               {formatScore(winner.score, metricLabel)}

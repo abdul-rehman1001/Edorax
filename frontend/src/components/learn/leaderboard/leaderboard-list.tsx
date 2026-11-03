@@ -86,7 +86,7 @@ export function LeaderboardList({
                     entry.isYou ? "font-semibold text-foreground" : "font-medium text-foreground"
                   )}
                 >
-                  {entry.isYou ? "You" : entry.name}
+                  {entry.name || "You"}
                 </span>
 
                 {entry.isYou ? (
