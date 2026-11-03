@@ -7,6 +7,7 @@ import { restoreInteractiveBlockTags } from '../../../server/src/shared/mdx/rest
 import { chapterBodyForReader } from '../../../server/src/shared/lib/mdx-frontmatter';
 import type { LessonNode } from '../domain/learning';
 import { literalValue } from './literal-value';
+import { transformVisualFences } from './transform-visual-fences';
 
 // Parse content as data. Never compile or execute author-provided JavaScript.
 export function parseLesson(source: string): LessonNode {
@@ -17,7 +18,8 @@ export function parseLesson(source: string): LessonNode {
     // The same plugins as the web reader, so ```flow, ```sequence and ```mermaid
     // fences become the shared Diagram and MermaidDiagram blocks here too.
     .use(readerRemarkPlugins);
-  const body = restoreInteractiveBlockTags(chapterBodyForReader(source));
+  const transformed = transformVisualFences(chapterBodyForReader(source));
+  const body = restoreInteractiveBlockTags(transformed);
   const tree = parser.runSync(parser.parse(body));
   function clean(node: any): LessonNode {
     if (

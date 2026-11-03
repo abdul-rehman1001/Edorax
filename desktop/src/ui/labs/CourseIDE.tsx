@@ -118,28 +118,70 @@ export function CourseIDEProvider({ children }: { children: ReactNode }) {
     </Context.Provider>
   );
 }
-export function OpenIDEButton() {
+export function OpenIDEButton({ compact = false }: { compact?: boolean } = {}) {
   const ide = useCourseIDE();
   return (
-    <button
-      aria-expanded={ide.open}
-      aria-controls="course-ide-panel"
-      onClick={() => (ide.open ? ide.close() : ide.show())}
-      className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted"
+    <div
+      className={`flex items-center gap-1.5 ${compact ? 'flex-col' : 'flex-wrap'}`}
     >
-      <Code2 size={15} />
-      {ide.open ? 'Hide IDE' : 'Open IDE'}
-    </button>
+      {!compact && ide.open && ide.lastExercise && (
+        <div
+          role="group"
+          aria-label="IDE workspace"
+          className="flex items-center rounded-md border border-border bg-muted/40 p-0.5 text-xs"
+        >
+          <button
+            aria-pressed={ide.selected === 'scratch'}
+            onClick={() => ide.show('scratch')}
+            className="rounded px-2.5 py-1 font-medium transition-colors hover:bg-muted aria-pressed:bg-background aria-pressed:shadow-xs"
+          >
+            Course workspace
+          </button>
+          <button
+            aria-pressed={ide.selected === ide.lastExercise}
+            onClick={() => ide.show(ide.lastExercise!)}
+            className="rounded px-2.5 py-1 font-medium transition-colors hover:bg-muted aria-pressed:bg-background aria-pressed:shadow-xs"
+          >
+            Lesson exercise
+          </button>
+        </div>
+      )}
+      {ide.open && (
+        <button
+          aria-label={ide.focused ? 'Exit IDE focus mode' : 'Focus IDE'}
+          title={
+            ide.focused ? 'Return to split screen' : 'Expand IDE to full screen'
+          }
+          onClick={ide.toggleFocus}
+          className={`flex items-center gap-1.5 rounded-md border border-border text-xs font-medium hover:bg-muted ${compact ? 'p-2' : 'px-2.5 py-1.5'}`}
+        >
+          {ide.focused ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          {!compact && (
+            <span>{ide.focused ? 'Split view' : 'Full screen'}</span>
+          )}
+        </button>
+      )}
+      <button
+        aria-expanded={ide.open}
+        aria-controls="course-ide-panel"
+        aria-label={ide.open ? 'Close IDE' : 'Open IDE'}
+        title={ide.open ? 'Hide IDE' : 'Open IDE'}
+        onClick={() => (ide.open ? ide.close() : ide.show())}
+        className={`flex items-center gap-2 rounded-md border border-border text-xs font-medium hover:bg-muted ${compact ? 'p-2' : 'px-3 py-1.5'}`}
+      >
+        {ide.open ? <X size={15} /> : <Code2 size={15} />}
+        {!compact && <span>{ide.open ? 'Hide IDE' : 'Open IDE'}</span>}
+      </button>
+    </div>
   );
 }
 export function CourseIDEPanel({
   courseSlug,
-  courseTitle,
   smallWindow,
   widthPercent,
 }: {
   courseSlug: string;
-  courseTitle: string;
+  courseTitle?: string;
   smallWindow: boolean;
   widthPercent?: number;
 }) {
@@ -177,56 +219,8 @@ export function CourseIDEPanel({
           ? { width: `${widthPercent}%` }
           : undefined
       }
-      className={`${!ide.open ? 'hidden' : 'flex'} ${ide.focused || smallWindow ? 'min-w-0 flex-1' : widthPercent ? 'min-w-[320px] max-w-[80%]' : 'w-[52%] min-w-[380px] max-w-[900px]'} shrink-0 flex-col border-l border-border bg-background`}
+      className={`${!ide.open ? 'hidden' : 'flex'} ${ide.focused || smallWindow ? 'min-w-0 flex-1' : widthPercent ? 'min-w-[320px] max-w-[85%]' : 'w-[52%] min-w-[380px] max-w-[900px]'} h-full shrink-0 flex-col border-l border-border bg-background`}
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-border p-3">
-        <div className="mr-auto min-w-0">
-          {!ide.focused && (
-            <>
-              <h2 className="text-sm font-semibold">Course IDE</h2>
-              <p className="truncate text-xs text-muted-foreground">
-                {courseTitle}
-              </p>
-            </>
-          )}
-        </div>
-        <button
-          aria-label={ide.focused ? 'Exit IDE focus mode' : 'Focus IDE'}
-          title={ide.focused ? 'Exit focus mode' : 'Focus mode'}
-          onClick={ide.toggleFocus}
-          className="rounded p-2 hover:bg-muted"
-        >
-          {ide.focused ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-        </button>
-        <button
-          aria-label="Close IDE"
-          onClick={ide.close}
-          className="rounded p-2 hover:bg-muted"
-        >
-          <X size={16} />
-        </button>
-      </header>
-      {!ide.focused && ide.lastExercise && (
-        <nav
-          aria-label="IDE workspace"
-          className="flex shrink-0 gap-2 border-b border-border bg-muted/40 p-2 text-xs"
-        >
-          <button
-            aria-pressed={ide.selected === 'scratch'}
-            onClick={() => ide.show('scratch')}
-            className="rounded-lg px-3 py-1.5 hover:bg-muted aria-pressed:bg-background aria-pressed:shadow-sm"
-          >
-            Project IDE
-          </button>
-          <button
-            aria-pressed={ide.selected === ide.lastExercise}
-            onClick={() => ide.show(ide.lastExercise!)}
-            className="rounded-lg px-3 py-1.5 hover:bg-muted aria-pressed:bg-background aria-pressed:shadow-sm"
-          >
-            Lesson exercise
-          </button>
-        </nav>
-      )}
       <div className="min-h-0 flex-1 overflow-hidden">
         <div hidden={ide.selected !== 'scratch'} className="h-full">
           {visited && window.buildment.ide ? (

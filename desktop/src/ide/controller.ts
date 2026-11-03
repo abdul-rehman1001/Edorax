@@ -12,7 +12,7 @@ import {
   type IpcMainInvokeEvent,
 } from 'electron';
 import { execFile } from 'node:child_process';
-import { access, mkdir, realpath } from 'node:fs/promises';
+import { access, mkdir, readdir, realpath, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -145,8 +145,16 @@ export function installIDE(
         defaultPath: path.join(app.getPath('documents'), 'edorax-project'),
       });
       if (choice.canceled || !choice.filePath) return null;
-      await mkdir(choice.filePath);
+      await mkdir(choice.filePath, { recursive: true });
       folder = await realpath(choice.filePath);
+      const entries = await readdir(folder);
+      if (entries.length === 0) {
+        await writeFile(
+          path.join(folder, 'index.js'),
+          '// Welcome to your project\nconsole.log("Ready to build!");\n',
+          { flag: 'wx' },
+        ).catch(() => {});
+      }
     } else {
       const choice = await dialog.showOpenDialog(window, {
         title: 'Open local project',
@@ -189,7 +197,9 @@ export function installIDE(
     view.webContents.on('render-process-gone', () => {
       void stop();
     });
-    await view.webContents.loadURL(current.url);
+    await view.webContents.loadURL(
+      `${current.url}#${encodeURI(current.folder)}`,
+    );
     return current;
   });
   ipcMain.handle('ide:bounds', (event, bounds) => {
@@ -236,6 +246,20 @@ export function installIDE(
     if (!view) throw new Error('Open a local project first.');
     await view.webContents.executeJavaScript(
       `window.dispatchEvent(new CustomEvent('edorax:new-terminal'))`,
+    );
+  });
+  ipcMain.handle('ide:select-theme', async (event) => {
+    requireRenderer(event);
+    if (!view) throw new Error('Open a local project first.');
+    await view.webContents.executeJavaScript(
+      `window.dispatchEvent(new CustomEvent('edorax:select-theme'))`,
+    );
+  });
+  ipcMain.handle('ide:open-extensions', async (event) => {
+    requireRenderer(event);
+    if (!view) throw new Error('Open a local project first.');
+    await view.webContents.executeJavaScript(
+      `window.dispatchEvent(new CustomEvent('edorax:open-extensions'))`,
     );
   });
   ipcMain.handle('ide:open-with-menu', async (event, position) => {

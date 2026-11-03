@@ -9,5 +9,7 @@ export interface IDEAPI {
   stop(): Promise<void>;
   newTerminal(): Promise<void>;
   revealExplorer(): Promise<void>;
+  selectTheme?(): Promise<void>;
+  openExtensions?(): Promise<void>;
   openWithMenu(position: { x: number; y: number }): Promise<void>;
 }

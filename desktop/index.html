@@ -12,20 +12,20 @@
     <style>
       :root {
         color-scheme: light;
-        --boot-bg: oklch(1 0 0);
-        --boot-fg: oklch(0.145 0 0);
-        --boot-muted: oklch(0.46 0 0);
-        --boot-track: oklch(0.922 0 0);
-        --boot-accent: #12a36b;
+        --boot-bg: #f6f7fb;
+        --boot-fg: #0a0f2c;
+        --boot-muted: #46507a;
+        --boot-track: #dce0f2;
+        --boot-accent: #2434e0;
       }
       @media (prefers-color-scheme: dark) {
         :root {
           color-scheme: dark;
-          --boot-bg: oklch(0.155 0.012 78);
-          --boot-fg: oklch(0.935 0.012 88);
-          --boot-muted: oklch(0.8 0.016 82);
-          --boot-track: oklch(0.93 0.012 88 / 12%);
-          --boot-accent: #3ddc97;
+          --boot-bg: #0a0f2c;
+          --boot-fg: #f6f7fb;
+          --boot-muted: #aab3de;
+          --boot-track: rgb(246 247 251 / 14%);
+          --boot-accent: #7a8bff;
         }
       }
       html,
@@ -135,12 +135,37 @@
       aria-live="polite"
     >
       <!-- Same vector mark as frontend/public/logo.svg; no network request. -->
-<svg class="boot-logo" role="img" aria-label="Edorax logo" xmlns="http://www.w3.org/2000/svg" viewBox="3540 -660 740 740">
-  <rect x="3540" y="-660" width="740" height="740" rx="120" fill="#F6F7FB"/>
-  <path d="M3683 -64 L4127 -508" stroke="#2434E0" stroke-width="160" stroke-linecap="round" fill="none"/>
-  <path d="M3683 -508 L3775 -416 M4035 -156 L4127 -64" stroke="#0A0F2C" stroke-width="160" stroke-linecap="round" fill="none"/>
-  <circle cx="4127" cy="-508" r="90" fill="#FFC933"/>
-</svg>
+      <svg
+        class="boot-logo"
+        role="img"
+        aria-label="Edorax logo"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="3540 -660 740 740"
+      >
+        <rect
+          x="3540"
+          y="-660"
+          width="740"
+          height="740"
+          rx="120"
+          fill="#F6F7FB"
+        />
+        <path
+          d="M3683 -64 L4127 -508"
+          stroke="#2434E0"
+          stroke-width="160"
+          stroke-linecap="round"
+          fill="none"
+        />
+        <path
+          d="M3683 -508 L3775 -416 M4035 -156 L4127 -64"
+          stroke="#0A0F2C"
+          stroke-width="160"
+          stroke-linecap="round"
+          fill="none"
+        />
+        <circle cx="4127" cy="-508" r="90" fill="#FFC933" />
+      </svg>
       <h1>edorax</h1>
       <p class="boot-caption">Learning workspace</p>
       <p id="startup-message">Opening your learning workspace…</p>

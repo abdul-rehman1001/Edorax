@@ -10,23 +10,50 @@ export class TheiaRuntime {
   private child?: ChildProcess;
   private session: IDESession | null = null;
   private starting = false;
-  private token = "";
-  authentication() { return this.token; }
-  constructor(private readonly directory: string, private readonly dataDirectory: string) {}
-  status() { return this.session; }
+  private token = '';
+  authentication() {
+    return this.token;
+  }
+  constructor(
+    private readonly directory: string,
+    private readonly dataDirectory: string,
+  ) {}
+  status() {
+    return this.session;
+  }
   async start(folder: string, parentOrigin: string): Promise<IDESession> {
     if (this.starting) throw new Error('The workspace is already starting.');
     const root = await realpath(folder);
     if (this.session?.folder === root) return this.session;
-    const node = path.join(this.directory, 'node_modules/node/bin', process.platform === 'win32' ? 'node.exe' : 'node');
+    const node = path.join(
+      this.directory,
+      'node_modules/node/bin',
+      process.platform === 'win32' ? 'node.exe' : 'node',
+    );
     const main = path.join(this.directory, 'src-gen/backend/main.js');
-    try { await Promise.all([access(node), access(main)]); }
-    catch { throw new Error('Theia is not built yet. Run npm --prefix desktop run ide:setup, then reopen the workspace.'); }
+    try {
+      await Promise.all([access(node), access(main)]);
+    } catch {
+      throw new Error(
+        'Theia is not built yet. Run npm --prefix desktop run ide:setup, then reopen the workspace.',
+      );
+    }
     this.starting = true;
     try {
       await this.stop();
-      const config = path.join(this.dataDirectory, createHash('sha256').update(root).digest('hex').slice(0, 16));
-      await mkdir(config, {recursive: true});
+      const config = path.join(
+        this.dataDirectory,
+        createHash('sha256').update(root).digest('hex').slice(0, 16),
+      );
+      const userPlugins = path.join(this.dataDirectory, 'plugins');
+      const bundledPlugins = path.join(this.directory, 'plugins');
+      await mkdir(config, { recursive: true });
+      await mkdir(userPlugins, { recursive: true });
+      await mkdir(bundledPlugins, { recursive: true });
+      await writeFile(
+        path.join(config, 'recentworkspace.json'),
+        JSON.stringify({ recentRoots: [pathToFileURL(root).href] }),
+      ).catch(() => {});
       const token = randomBytes(32).toString('hex');
       this.token = token;
 
@@ -45,7 +72,16 @@ export class TheiaRuntime {
       const parts = existingPath.split(pathSeparator).filter(Boolean);
       const extras = [
         nodeBinDir,
-        ...(process.platform === 'darwin' ? ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin'] : []),
+        ...(process.platform === 'darwin'
+          ? [
+              '/opt/homebrew/bin',
+              '/usr/local/bin',
+              '/usr/bin',
+              '/bin',
+              '/usr/sbin',
+              '/sbin',
+            ]
+          : []),
       ];
       for (const extra of extras) {
         if (!parts.includes(extra)) {
@@ -57,65 +93,118 @@ export class TheiaRuntime {
         env.Path = env.PATH;
       }
 
-      const child = spawn(node, [main, root, '--hostname=127.0.0.1', '--port=0'], {
-        cwd: this.directory,
-        env: {
-          ...env,
-          THEIA_PARENT_PID: String(process.pid),
-          THEIA_CONFIG_DIR: config,
-          EDORAX_IDE_TOKEN: token,
-          EDORAX_PARENT_ORIGIN: parentOrigin,
-          EDORAX_WORKSPACE: root,
+      const defaultPlugins = `local-dir:${bundledPlugins},local-dir:${userPlugins}`;
+      const child = spawn(
+        node,
+        [
+          main,
+          root,
+          `--root-dir=${root}`,
+          '--hostname=127.0.0.1',
+          '--port=0',
+          `--plugins=${defaultPlugins}`,
+        ],
+        {
+          cwd: this.directory,
+          env: {
+            ...env,
+            THEIA_PARENT_PID: String(process.pid),
+            THEIA_CONFIG_DIR: config,
+            THEIA_DEFAULT_PLUGINS: defaultPlugins,
+            THEIA_PLUGINS: defaultPlugins,
+            VSX_REGISTRY_URL: 'https://open-vsx.org',
+            EDORAX_IDE_TOKEN: token,
+            EDORAX_PARENT_ORIGIN: parentOrigin,
+            EDORAX_WORKSPACE: root,
+          },
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
         },
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-      });
+      );
       this.child = child;
-      child.once('exit', () => {if (this.child === child) {this.child = undefined; this.session = null;}});
+      child.once('exit', () => {
+        if (this.child === child) {
+          this.child = undefined;
+          this.session = null;
+        }
+      });
       const port = await new Promise<number>((resolve, reject) => {
         let stdout = '';
         let diagnostic = '';
-        const timer = setTimeout(() => finish(new Error('Theia took too long to start. Try again or use the quick workspace.')), 60_000);
+        const timer = setTimeout(
+          () =>
+            finish(
+              new Error(
+                'Theia took too long to start. Try again or use the quick workspace.',
+              ),
+            ),
+          60_000,
+        );
         const finish = (error?: Error, port?: number) => {
           clearTimeout(timer);
           child.removeListener('error', failed);
           child.removeListener('exit', exited);
-          if (error) reject(error); else resolve(port!);
+          if (error) reject(error);
+          else resolve(port!);
         };
         const failed = (error: Error) => finish(error);
-        const exited = () => finish(new Error(`Theia could not start. ${diagnostic.slice(-1200)}`));
+        const exited = () =>
+          finish(
+            new Error(`Theia could not start. ${diagnostic.slice(-1200)}`),
+          );
         child.once('error', failed);
         child.once('exit', exited);
-        child.stderr?.on('data', data => {diagnostic = (diagnostic + data.toString()).slice(-2000);});
-        child.stdout?.on('data', data => {
+        child.stderr?.on('data', (data) => {
+          diagnostic = (diagnostic + data.toString()).slice(-2000);
+        });
+        child.stdout?.on('data', (data) => {
           stdout = (stdout + data.toString()).slice(-8000);
           const match = stdout.match(/EDORAX_IDE_READY:(\d+)/);
           if (match) finish(undefined, Number(match[1]));
         });
       });
-      this.session = {folder: root, url: `http://127.0.0.1:${port}/`};
+      this.session = { folder: root, url: `http://127.0.0.1:${port}/` };
       return this.session;
-    } catch(error) {await this.stop(); throw error;}
-    finally {this.starting = false;}
+    } catch (error) {
+      await this.stop();
+      throw error;
+    } finally {
+      this.starting = false;
+    }
   }
   async importSnippet(source: string, filename: string) {
     if (!this.session) throw new Error('Open a local project first.');
-    if (typeof source !== 'string' || Buffer.byteLength(source) > 64 * 1024 || source.includes('\0')) throw new Error('Snippet must be text up to 64 KB.');
-    if (typeof filename !== 'string' || !/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]{1,12}$/.test(filename)) throw new Error('Invalid snippet filename.');
+    if (
+      typeof source !== 'string' ||
+      Buffer.byteLength(source) > 64 * 1024 ||
+      source.includes('\0')
+    )
+      throw new Error('Snippet must be text up to 64 KB.');
+    if (
+      typeof filename !== 'string' ||
+      !/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]{1,12}$/.test(filename)
+    )
+      throw new Error('Invalid snippet filename.');
     const unique = `${path.parse(filename).name}-${randomBytes(5).toString('hex')}${path.extname(filename)}`;
     const target = path.join(this.session.folder, unique);
-    await writeFile(target, source, {flag: 'wx'});
-    return {uri: pathToFileURL(target).href};
+    await writeFile(target, source, { flag: 'wx' });
+    return { uri: pathToFileURL(target).href };
   }
   async stop() {
     const child = this.child;
     this.child = undefined;
     this.session = null;
-    this.token = "";
+    this.token = '';
     if (!child || child.exitCode !== null) return;
-    await new Promise<void>(resolve => {
-      const timer = setTimeout(() => {child.kill('SIGKILL'); resolve();}, 3000);
-      child.once('exit', () => {clearTimeout(timer); resolve();});
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        child.kill('SIGKILL');
+        resolve();
+      }, 3000);
+      child.once('exit', () => {
+        clearTimeout(timer);
+        resolve();
+      });
       child.kill('SIGTERM');
     });
   }

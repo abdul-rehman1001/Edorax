@@ -10,34 +10,69 @@
 /* Palette matches frontend/src/app/globals.css, including its system dark theme. */
 :root {
   color-scheme: light;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.46 0 0);
-  --border: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --ok: #12a36b;
-  --ok-soft: #dcf7ea;
+  --brand-cobalt: #2434e0;
+  --brand-yellow: #ffc933;
+  --background: #f6f7fb;
+  --foreground: #0a0f2c;
+  --card: #ffffff;
+  --card-foreground: #0a0f2c;
+  --popover: #ffffff;
+  --popover-foreground: #0a0f2c;
+  --primary: #2434e0;
+  --primary-foreground: #ffffff;
+  --secondary: #e8ebff;
+  --secondary-foreground: #0a0f2c;
+  --muted: #e8ebff;
+  --muted-foreground: #46507a;
+  --accent: #e8ebff;
+  --accent-foreground: #0a0f2c;
+  --destructive: oklch(0.52 0.21 27);
+  --border: #dce0f2;
+  --input: #dce0f2;
+  --ring: #2434e0;
+  --sidebar: #f0f2fa;
+  --sidebar-foreground: #0a0f2c;
+  --sidebar-primary: #2434e0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8ebff;
+  --sidebar-accent-foreground: #2434e0;
+  --sidebar-border: #dce0f2;
+  --sidebar-ring: #2434e0;
+  --ok: #0b6b45;
+  --ok-soft: #ddf3e8;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --background: oklch(0.155 0.012 78);
-    --foreground: oklch(0.935 0.012 88);
-    --card: oklch(0.205 0.012 76);
-    --primary: oklch(0.935 0.012 88);
-    --primary-foreground: oklch(0.2 0.012 76);
-    --muted: oklch(0.25 0.012 76);
-    --muted-foreground: oklch(0.8 0.016 82);
-    --border: oklch(0.93 0.012 88 / 12%);
-    --ring: oklch(0.72 0.04 85);
-    --sidebar: oklch(0.135 0.01 78);
+    --brand-cobalt: #7a8bff;
+    --background: #0a0f2c;
+    --foreground: #f6f7fb;
+    --card: #111836;
+    --card-foreground: #f6f7fb;
+    --popover: #151c44;
+    --popover-foreground: #f6f7fb;
+    --primary: #7a8bff;
+    --primary-foreground: #0a0f2c;
+    --secondary: #1a2150;
+    --secondary-foreground: #f6f7fb;
+    --muted: #172046;
+    --muted-foreground: #aab3de;
+    --accent: #1e2758;
+    --accent-foreground: #f6f7fb;
+    --destructive: oklch(0.7 0.17 25);
+    --border: rgb(246 247 251 / 14%);
+    --input: rgb(246 247 251 / 20%);
+    --ring: #7a8bff;
+    --sidebar: #070b20;
+    --sidebar-foreground: #f6f7fb;
+    --sidebar-primary: #7a8bff;
+    --sidebar-primary-foreground: #0a0f2c;
+    --sidebar-accent: #172046;
+    --sidebar-accent-foreground: #f6f7fb;
+    --sidebar-border: rgb(246 247 251 / 12%);
+    --sidebar-ring: #7a8bff;
     --ok: #3ddc97;
-    --ok-soft: #123326;
+    --ok-soft: #0e3326;
   }
 }
 @theme inline {
@@ -137,8 +172,12 @@ input:focus-visible {
 }
 
 @layer base {
-  html { font-family: var(--font-sans); }
-  h1, h2, h3 {
+  html {
+    font-family: var(--font-sans);
+  }
+  h1,
+  h2,
+  h3 {
     font-family: var(--font-heading), var(--font-sans), system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -160,13 +199,29 @@ input:focus-visible {
   position: relative;
   z-index: 30;
 }
-.desktop-toolbar[data-platform='darwin'] { padding-left: 92px; }
+.desktop-toolbar[data-platform='darwin'] {
+  padding-left: 92px;
+}
 .desktop-toolbar :is(button, a, input, select, textarea, summary, details) {
   -webkit-app-region: no-drag;
 }
 
-.lesson-snippet pre { margin: 0; overflow-x: auto; padding: 1rem; font-size: 13px; line-height: 1.7; }
-.lesson-snippet code { background: transparent; padding: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.lesson-snippet pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 1rem;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.lesson-snippet code {
+  background: transparent;
+  padding: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 @media (prefers-color-scheme: dark) {
-  .lesson-snippet .shiki, .lesson-snippet .shiki span { color: var(--shiki-dark) !important; background-color: var(--shiki-dark-bg) !important; }
+  .lesson-snippet .shiki,
+  .lesson-snippet .shiki span {
+    color: var(--shiki-dark) !important;
+    background-color: var(--shiki-dark-bg) !important;
+  }
 }

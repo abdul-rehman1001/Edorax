@@ -90,15 +90,22 @@ export function LessonContent(props: Props): React.ReactNode {
   if (node.type === 'break') return <br />;
   if (node.type === 'table')
     return (
-      <div className="my-5 overflow-x-auto">
-        <table className="w-full border-collapse">
-          <tbody>{children}</tbody>
-        </table>
+      <div className="not-prose my-8 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[15px] leading-relaxed">
+            <tbody>{children}</tbody>
+          </table>
+        </div>
       </div>
     );
-  if (node.type === 'tableRow') return <tr>{children}</tr>;
+  if (node.type === 'tableRow')
+    return <tr className="transition-colors hover:bg-muted/50">{children}</tr>;
   if (node.type === 'tableCell')
-    return <td className="border border-border p-3">{children}</td>;
+    return (
+      <td className="border border-border px-5 py-4 align-top text-foreground/85 [&:first-child]:font-semibold [&:first-child]:text-foreground">
+        {children}
+      </td>
+    );
   if (node.type === 'link') {
     const href = node.url || '';
     const className = 'font-medium underline underline-offset-4';

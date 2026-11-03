@@ -72,6 +72,7 @@ function CourseReaderBody({
     () => (lesson ? lessonHeadings(lesson.document) : null),
     [lesson?.document],
   );
+  const variant = variantForTrack(lesson?.track ?? null);
   const showHeadings =
     lesson?.chapter.readerMode !== 'QUIZ' &&
     !(lesson?.content?.predictGate && !lesson.content.predictRevealed);
@@ -216,43 +217,41 @@ function CourseReaderBody({
     <CourseNavigationProvider onNavigate={navigate}>
       <VariantThemeScope variant={variantForTrack(lesson?.track ?? null)}>
         <div className="course-overview-surface flex h-full flex-col overflow-hidden bg-background">
-          {!ide.focused && (
-            <DesktopToolbar>
-              <div className="flex min-w-0 items-center gap-2">
-                <SidebarToggle
-                  collapsed={sidebarClosed}
-                  onClick={() => setSidebarClosed(!sidebarClosed)}
+          <DesktopToolbar>
+            <div className="flex min-w-0 items-center gap-2">
+              <SidebarToggle
+                collapsed={sidebarClosed}
+                onClick={() => setSidebarClosed(!sidebarClosed)}
+              />
+              <button
+                aria-label="Back to course preview"
+                title="Back to course preview"
+                onClick={onBack}
+                className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <ArrowLeft size={16} />
+                <span>Course</span>
+              </button>
+              <div className="min-w-0 border-l border-border pl-3">
+                <p className="truncate text-[11px] font-medium text-muted-foreground">
+                  {lesson?.course.title || courseTitle}
+                </p>
+                <p className="truncate text-[13px] font-semibold">
+                  {lesson?.chapter.title || 'Loading lesson…'}
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {showHeadings && Boolean(annotated?.headings.length) && (
+                <TocToggle
+                  collapsed={tocClosed}
+                  onClick={() => setTocClosed(!tocClosed)}
                 />
-                <button
-                  aria-label="Back to course preview"
-                  title="Back to course preview"
-                  onClick={onBack}
-                  className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <ArrowLeft size={16} />
-                  <span>Course</span>
-                </button>
-                <div className="min-w-0 border-l border-border pl-3">
-                  <p className="truncate text-[11px] font-medium text-muted-foreground">
-                    {lesson?.course.title || courseTitle}
-                  </p>
-                  <p className="truncate text-[13px] font-semibold">
-                    {lesson?.chapter.title || 'Loading lesson…'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {showHeadings && Boolean(annotated?.headings.length) && (
-                  <TocToggle
-                    collapsed={tocClosed}
-                    onClick={() => setTocClosed(!tocClosed)}
-                  />
-                )}
-                <OpenIDEButton />
-                <AccountMenu session={session} />
-              </div>
-            </DesktopToolbar>
-          )}
+              )}
+              <OpenIDEButton />
+              <AccountMenu session={session} />
+            </div>
+          </DesktopToolbar>
           {session.authError && (
             <p role="alert" className="m-5 rounded border border-border p-4">
               {session.authError}
@@ -306,6 +305,24 @@ function CourseReaderBody({
                   >
                     {lesson.chapter.title}
                   </h1>
+                  {lesson.course.projectGoal &&
+                    lesson.chapter.readerMode !== 'QUIZ' && (
+                      <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          The project:{' '}
+                        </span>
+                        {lesson.course.projectGoal.trim().replace(/\.+$/, '')}.
+                      </div>
+                    )}
+                  {variant && lesson.chapter.readerMode !== 'QUIZ' && (
+                    <div className="mt-2 rounded-xl bg-muted/60 px-4 py-2.5 text-sm leading-relaxed text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        You are building:{' '}
+                      </span>
+                      {variant.productName} ({variant.label.toLowerCase()}{' '}
+                      variant)
+                    </div>
+                  )}
                   {lesson.locked ? (
                     <div className="mt-6">
                       <p>
