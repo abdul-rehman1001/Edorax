@@ -2,12 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, apiFetch } from "@/lib/api-client";
+import {
+  STUDY_ACTIVITY_EVENTS,
+  STUDY_INACTIVITY_MS,
+  shouldAutoResumeStudyTimer,
+  shouldListenForStudyActivity,
+} from "@/lib/study-session-activity";
 
 export type StudyClockStatus = "idle" | "running" | "paused";
 export type StudyPauseReason = "manual" | "inactive" | "hidden" | null;
 
 const HEARTBEAT_MS = 15_000;
-const INACTIVITY_MS = 2 * 60_000;
 const MAX_RECONNECT_DELAY_MS = 15_000;
 
 type SessionPayload = {
@@ -64,6 +69,7 @@ export function useStudySession(chapterId: string) {
   }
 
   const statusRef = useRef<StudyClockStatus>("idle");
+  const pauseReasonRef = useRef<StudyPauseReason>(null);
   const busyRef = useRef(false);
   const pendingRef = useRef(0);
   const chapterRef = useRef(chapterId);
@@ -73,6 +79,10 @@ export function useStudySession(chapterId: string) {
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
+
+  useEffect(() => {
+    pauseReasonRef.current = pauseReason;
+  }, [pauseReason]);
 
   const apply = useCallback((data: SessionPayload | null, keepPending = false) => {
     if (!data) return;
@@ -183,6 +193,7 @@ export function useStudySession(chapterId: string) {
   useEffect(() => {
     const onHide = () => {
       if (statusRef.current !== "running") return;
+      pauseReasonRef.current = "hidden";
       setPauseReason("hidden");
       const sent = pendingRef.current;
       pendingRef.current = 0;
@@ -200,7 +211,7 @@ export function useStudySession(chapterId: string) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", onHide);
     };
-  }, [apply]);
+  }, []);
 
   const run = useCallback(
     async (action: "start" | "pause" | "resume" | "end", reason?: StudyPauseReason) => {
@@ -216,10 +227,14 @@ export function useStudySession(chapterId: string) {
         apply(data);
         if (action === "start" || action === "resume") {
           lastActivityAt.current = Date.now();
+          pauseReasonRef.current = null;
           setPauseReason(null);
         } else if (action === "pause") {
-          setPauseReason(reason ?? "manual");
+          const nextReason = reason ?? "manual";
+          pauseReasonRef.current = nextReason;
+          setPauseReason(nextReason);
         } else if (action === "end") {
+          pauseReasonRef.current = null;
           setPauseReason(null);
         }
       } catch (error) {
@@ -236,23 +251,47 @@ export function useStudySession(chapterId: string) {
   );
 
   useEffect(() => {
-    if (status !== "running") return;
-    lastActivityAt.current = Date.now();
+    if (!shouldListenForStudyActivity(status, pauseReason)) return;
+
+    if (status === "running") {
+      lastActivityAt.current = Date.now();
+    }
+
     const onActivity = () => {
-      if (document.visibilityState === "visible") lastActivityAt.current = Date.now();
-    };
-    const events: (keyof DocumentEventMap)[] = ["pointerdown", "keydown", "scroll", "input", "touchstart"];
-    for (const event of events) document.addEventListener(event, onActivity, { capture: true, passive: true });
-    const inactivityCheck = window.setInterval(() => {
-      if (Date.now() - lastActivityAt.current >= INACTIVITY_MS) {
-        void run("pause", "inactive");
+      if (document.visibilityState !== "visible") return;
+      lastActivityAt.current = Date.now();
+      if (shouldAutoResumeStudyTimer(statusRef.current, pauseReasonRef.current)) {
+        void run("resume");
       }
-    }, HEARTBEAT_MS);
-    return () => {
-      window.clearInterval(inactivityCheck);
-      for (const event of events) document.removeEventListener(event, onActivity, true);
     };
-  }, [status, run]);
+
+    for (const event of STUDY_ACTIVITY_EVENTS) {
+      document.addEventListener(event, onActivity, { capture: true, passive: true });
+    }
+    window.addEventListener("focus", onActivity);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") onActivity();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    const inactivityCheck =
+      status === "running"
+        ? window.setInterval(() => {
+            if (Date.now() - lastActivityAt.current >= STUDY_INACTIVITY_MS) {
+              void run("pause", "inactive");
+            }
+          }, HEARTBEAT_MS)
+        : undefined;
+
+    return () => {
+      if (inactivityCheck !== undefined) window.clearInterval(inactivityCheck);
+      for (const event of STUDY_ACTIVITY_EVENTS) {
+        document.removeEventListener(event, onActivity, true);
+      }
+      window.removeEventListener("focus", onActivity);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [status, pauseReason, run]);
 
   return {
     status,
