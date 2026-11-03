@@ -56,18 +56,11 @@ function locate(modules: ReleaseModule[], key: string | null, id: string | null)
 
 /**
  * When a new release is approved and published:
- * 1. Automatically update active/in-progress learners so they receive the latest chapters and curriculum.
+ * 1. Active/in-progress learners are automatically upgraded on course overview or reader open
+ *    with safe progress rollup recomputation (preserving completed work).
  * 2. Notify completed learners that new material has been published for their course.
  */
 export async function onNewCourseReleasePublished(tx: Prisma.TransactionClient, courseId: string, releaseId: string) {
-  await tx.enrollment.updateMany({
-    where: {
-      courseId,
-      status: { not: "COMPLETED" },
-    },
-    data: { releaseId },
-  });
-
   const completedLearners = await tx.enrollment.findMany({
     where: {
       courseId,
