@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { ok } from "../utils/responses.js";
 import { continueChapterPath } from "../services/courses/continue.js";
-import { getCourseOverview } from "../services/courses/overview.js";
+import { getCourseOverview, upgradeEnrollmentCurriculum } from "../services/courses/overview.js";
 import { loadChapterReader } from "../services/chapters/reader.js";
 import { chooseCourseSpecialisation, chooseCourseVariant } from "../services/courses/track.js";
 
@@ -32,4 +32,9 @@ export async function chooseVariant(req: Request, res: Response) {
 export async function chooseSpecialisation(req: Request, res: Response) {
   const { specialisationSlug } = req.body as { specialisationSlug: string };
   ok(res, await chooseCourseSpecialisation(req.params.courseSlug as string, req.user!, specialisationSlug));
+}
+
+// POST /api/v1/courses/:courseSlug/upgrade-curriculum
+export async function upgradeCurriculum(req: Request, res: Response) {
+  ok(res, await upgradeEnrollmentCurriculum(req.params.courseSlug as string, req.user!));
 }

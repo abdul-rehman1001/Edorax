@@ -105,6 +105,10 @@ test(`native reader submits quizzes, completes chapters and respects sound mute=
           data: { href: '/courses/systems/lesson-one' },
         }),
         learning: {
+          upgradeCurriculum: async () => ({
+            ok: true,
+            data: { success: true, releaseId: 'rel-1' },
+          }),
           updateTrack: async () => {
             throw new Error('Unexpected track mutation');
           },

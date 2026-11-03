@@ -27,6 +27,7 @@ export const NOTIFICATION_CHANNELS: Record<NotificationType, ChannelConfig> = {
   "enrollment.new_learner": { category: "course", inApp: true, email: true },
   "course.completed": { category: "course", inApp: true, email: true },
   "course.learner_completed": { category: "course", inApp: true, email: false },
+  "course.curriculum_updated": { category: "course", inApp: true, email: true },
   "organization.course_approved": { category: "course", inApp: true, email: true },
 
   // Routine reminders (grouped per user and rate-limited in reminders.ts)

@@ -26,7 +26,8 @@ function buildChapterMap(modules: SyllabusModule[]): Map<string, string> {
     for (let i = 0; i < module.chapters.length; i++) {
       const chapter = module.chapters[i];
       if (!chapter) continue;
-      const label = canonicalLessonLabel(`${module.order}.${chapter.order ?? i + 1}`);
+      const chapterOrder = (chapter as { order?: number }).order ?? i + 1;
+      const label = canonicalLessonLabel(`${module.order}.${chapterOrder}`);
       if (label) map.set(label, chapter.slug);
     }
   }

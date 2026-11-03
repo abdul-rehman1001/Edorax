@@ -10,7 +10,7 @@ import { requireBlockSubmissionAccess } from "../enrollment/api-learn-access.js"
 import { loadChapterThread } from "../help/threads.js";
 import { serializeHelpThread } from "../help/serialize.js";
 import { chapterChecksLine, chapterNextLine, chapterOpenLine, latestChapterResponses } from "../progress/chapter-recap.js";
-import { ensureChapterStarted } from "../progress/compute.js";
+import { ensureChapterStarted, recomputeEnrollmentRollup } from "../progress/compute.js";
 import { syllabusForEnrollment } from "../progress/enrollment-syllabus.js";
 import { loadCourseGate } from "../progress/gate.js";
 import { loadLearnerHabit } from "../progress/learner-habit.js";
@@ -37,6 +37,7 @@ export async function loadChapterReader(courseSlug: string, chapterSlug: string,
       sequential: true,
       familySlug: true,
       variantFamily: true,
+      activeReleaseId: true,
       modules: {
         where: { archivedAt: null },
         orderBy: { order: "asc" },
@@ -65,6 +66,20 @@ export async function loadChapterReader(courseSlug: string, chapterSlug: string,
   if (!course) throw new NotFoundError("Course not found");
 
   const enrollment = await requireBlockSubmissionAccess(course.id, user);
+
+  // If the requested chapter is from a newer release, upgrade in-progress learners seamlessly.
+  const currentRelease = await releaseForEnrollment(course.id, enrollment, course.familySlug);
+  const inCurrentRelease = !currentRelease || currentRelease.modules.some(m => m.chapters.some(c => c.slug === chapterSlug));
+
+  if (!inCurrentRelease && course.activeReleaseId && enrollment.releaseId !== course.activeReleaseId && enrollment.status !== "COMPLETED") {
+    await prisma.enrollment.update({
+      where: { id: enrollment.id },
+      data: { releaseId: course.activeReleaseId },
+    });
+    enrollment.releaseId = course.activeReleaseId;
+    await recomputeEnrollmentRollup(prisma, enrollment.id, { preserveActivity: true });
+  }
+
   const bypassLocking = shouldBypassProgressGating(user);
   const selectedRelease = await releaseForEnrollment(course.id, enrollment, course.familySlug);
   const courseModules = selectedRelease ? await releaseModulesWithBlocks(selectedRelease.modules) : course.modules;

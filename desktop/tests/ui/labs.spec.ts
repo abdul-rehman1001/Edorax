@@ -99,6 +99,10 @@ test('code workspace is inside its course and preserves course grading', async (
           data: { href: '/courses/systems/lesson-one' },
         }),
         learning: {
+          upgradeCurriculum: async () => ({
+            ok: true,
+            data: { success: true, releaseId: 'rel-1' },
+          }),
           updateTrack: async () => {
             throw new Error('Unexpected track mutation');
           },

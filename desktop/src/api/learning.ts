@@ -80,6 +80,20 @@ export function createLearningClient(request: Request) {
         };
       return { ok: true, data: result.data as CourseOverview };
     },
+    async upgradeCurriculum(
+      course: string,
+    ): Promise<Result<{ success: boolean; releaseId: string }>> {
+      if (!valid(course)) return invalid;
+      const result = await request(
+        '/api/v1/courses/' + segment(course) + '/upgrade-curriculum',
+        'POST',
+      );
+      if (!result.ok) return result;
+      return {
+        ok: true,
+        data: result.data as { success: boolean; releaseId: string },
+      };
+    },
     async updateTrack(
       course: string,
       kind: 'variant' | 'specialisation',

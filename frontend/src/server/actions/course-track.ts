@@ -45,3 +45,11 @@ export async function chooseCourseSpecialisationAction(formData: FormData): Prom
   revalidatePath(`/courses/${result.courseSlug}`);
   redirect(`/courses/${result.courseSlug}#specialisation`);
 }
+
+export async function upgradeCourseCurriculumAction(courseSlug: string): Promise<void> {
+  await serverApiFetch<{ success: boolean; releaseId: string }>(
+    `/api/v1/courses/${encodeURIComponent(courseSlug)}/upgrade-curriculum`,
+    { method: "POST" }
+  );
+  revalidatePath(`/courses/${courseSlug}`);
+}
