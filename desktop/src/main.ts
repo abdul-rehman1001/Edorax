@@ -379,6 +379,10 @@ else {
       requireRenderer(event);
       return previewClient.learning.overview(course);
     });
+    ipcMain.handle('learning:upgrade-curriculum', (event, course) => {
+      requireRenderer(event);
+      return previewClient.learning.upgradeCurriculum(course);
+    });
     ipcMain.handle('learning:block', (event, id) => {
       requireRenderer(event);
       return previewClient.learning.block(id);

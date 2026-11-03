@@ -124,6 +124,10 @@ export function EnrolledCourse({
             <CourseOverviewContent
               overview={overview}
               onChooseSpecialisation={(data) => choose(data, 'specialisation')}
+              onUpgradeCurriculum={async () => {
+                await window.buildment.learning.upgradeCurriculum(slug);
+                await load();
+              }}
             />
           )
         ) : !error ? (

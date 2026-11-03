@@ -4,6 +4,7 @@ import { Prisma } from "../../generated/prisma/index.js";
 import { resolveCourseFamily } from "../../shared/lib/course-tracks.js";
 import { ensureBaselineRelease, type ReleaseChapter, type ReleaseContent, type ReleaseModule } from "../courses/releases.js";
 import { BadRequestError } from "../../utils/errors.js";
+import { notify } from "../notifications/service.js";
 import type { ImportPlan } from "./course-import.js";
 import { canonical, type UpdateMapping } from "./course-update-matching.js";
 
@@ -51,6 +52,52 @@ function locate(modules: ReleaseModule[], key: string | null, id: string | null)
   // First keyed import of a legacy course: use the reviewed content match once.
   if (key && id) return locate(modules, null, id);
   return null;
+}
+
+/**
+ * When a new release is approved and published:
+ * 1. Active/in-progress learners are automatically upgraded on course overview or reader open
+ *    with safe progress rollup recomputation (preserving completed work).
+ * 2. Notify completed learners that new material has been published for their course.
+ */
+export async function onNewCourseReleasePublished(tx: Prisma.TransactionClient, courseId: string, releaseId: string) {
+  const completedLearners = await tx.enrollment.findMany({
+    where: {
+      courseId,
+      status: "COMPLETED",
+      userId: { not: null },
+    },
+    select: {
+      userId: true,
+      course: { select: { title: true, slug: true } },
+    },
+  });
+
+  if (completedLearners.length > 0) {
+    const courseTitle = completedLearners[0].course.title;
+    const courseSlug = completedLearners[0].course.slug;
+    const recipients = completedLearners
+      .filter((e): e is typeof e & { userId: string } => Boolean(e.userId))
+      .map((e) => ({ userId: e.userId }));
+
+    await notify(
+      {
+        type: "course.curriculum_updated",
+        recipients,
+        dedupeKey: `curriculum_update_${courseId}_${releaseId}`,
+        title: "New Chapters Available!",
+        body: `New content has been published for ${courseTitle}. Check it out!`,
+        url: `/courses/${courseSlug}`,
+        courseId,
+        email: ({ name }) => ({
+          subject: `New chapters added to ${courseTitle}`,
+          text: `Hi ${name || "there"},\n\nNew chapters have been published for ${courseTitle}. Jump back in to explore the latest curriculum:\n\n${courseTitle}\n`,
+          html: `<p>Hi ${name || "there"},</p><p>New chapters have been published for <strong>${courseTitle}</strong>. Jump back in to explore the latest curriculum.</p>`,
+        }),
+      },
+      { tx }
+    );
+  }
 }
 
 /** Publish a patch against the current release. Nothing absent from the package is removed. */
@@ -186,6 +233,7 @@ export async function publishCourseRelease(tx: Prisma.TransactionClient, courseI
     content: next as unknown as Prisma.InputJsonValue, sourceHash } });
   await tx.course.update({ where: { id: courseId }, data: { activeReleaseId: release.id, assistant,
     ...(plan.manifest.availableVariantSlugs ? { availableVariantSlugs: plan.manifest.availableVariantSlugs } : {}) } });
+  await onNewCourseReleasePublished(tx, courseId, release.id);
   return release;
 }
 
@@ -240,6 +288,7 @@ export async function publishDashboardNewChapterRelease(tx: Prisma.TransactionCl
   const release = await tx.courseRelease.create({ data: { id: ulid(), courseId, number: previous.number + 1,
     content: next as unknown as Prisma.InputJsonValue, sourceHash } });
   await tx.course.update({ where: { id: courseId }, data: { activeReleaseId: release.id } });
+  await onNewCourseReleasePublished(tx, courseId, release.id);
 }
 
 export async function removeChapterFromRelease(tx: Prisma.TransactionClient, courseId: string, chapterId: string) {
@@ -260,6 +309,7 @@ export async function removeChapterFromRelease(tx: Prisma.TransactionClient, cou
   const release = await tx.courseRelease.create({ data: { id: ulid(), courseId, number: previous.number + 1,
     content: next as unknown as Prisma.InputJsonValue, sourceHash } });
   await tx.course.update({ where: { id: courseId }, data: { activeReleaseId: release.id } });
+  await onNewCourseReleasePublished(tx, courseId, release.id);
   return true;
 }
 
@@ -305,4 +355,5 @@ export async function publishDashboardStructureRelease(tx: Prisma.TransactionCli
   const release = await tx.courseRelease.create({ data: { id: ulid(), courseId, number: previous.number + 1,
     content: next as unknown as Prisma.InputJsonValue, sourceHash } });
   await tx.course.update({ where: { id: courseId }, data: { activeReleaseId: release.id } });
+  await onNewCourseReleasePublished(tx, courseId, release.id);
 }

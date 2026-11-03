@@ -8,7 +8,7 @@ import { requireLearnSurface } from "@/server/auth/guards";
 import { serverApiFetchOrNotFound } from "@/lib/api-server";
 import { CourseOverviewContent } from "@buildment/learning-ui/components/learn/course-overview-content";
 import { WebCourseNavigation } from "@/components/learn/course-navigation";
-import { chooseCourseSpecialisationAction } from "@/server/actions/course-track";
+import { chooseCourseSpecialisationAction, upgradeCourseCurriculumAction } from "@/server/actions/course-track";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -108,7 +108,14 @@ export default async function CourseOverviewPage({
 
   return (
     <WebCourseNavigation>
-      <CourseOverviewContent overview={overview} onChooseSpecialisation={chooseCourseSpecialisationAction} />
+      <CourseOverviewContent
+        overview={overview}
+        onChooseSpecialisation={chooseCourseSpecialisationAction}
+        onUpgradeCurriculum={async () => {
+          "use server";
+          await upgradeCourseCurriculumAction(course.slug);
+        }}
+      />
     </WebCourseNavigation>
   );
 }

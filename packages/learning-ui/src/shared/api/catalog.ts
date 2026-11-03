@@ -64,6 +64,8 @@ export type CourseOverview = {
   coupon: CourseCouponEntitlement | null;
   /** Variant and specialisation for a course in a family; null otherwise or without access. */
   track: CourseTrack | null;
+  /** True when a newer course release is available for an enrolled learner who finished an earlier version. */
+  curriculumUpgradeAvailable?: boolean;
   /** Present only when access is active. */
   syllabus: {
     modules: SyllabusModule[];

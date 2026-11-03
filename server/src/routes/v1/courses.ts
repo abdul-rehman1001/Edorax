@@ -27,6 +27,13 @@ router.put(
   validateBody(chooseSpecialisationBody),
   courses.chooseSpecialisation
 );
+router.post(
+  "/:courseSlug/upgrade-curriculum",
+  authenticate,
+  requireVerified,
+  validateParams(courseSlugParams),
+  courses.upgradeCurriculum
+);
 router.get("/:courseSlug/checkout", authenticate, requireVerified, validateParams(courseSlugParams), enrollments.checkout);
 
 export default router;
