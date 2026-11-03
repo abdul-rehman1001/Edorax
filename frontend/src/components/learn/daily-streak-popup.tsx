@@ -5,6 +5,7 @@ import { Check, Flame, Share2, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
+import { playFeedback } from "@/lib/sound-feedback";
 import type { StreakPopupDayView, StreakPopupView } from "@/shared/api/learner";
 import { streakDaySummary } from "@/shared/lib/streak-popup";
 
@@ -66,19 +67,22 @@ function FlameRings({ className }: { className?: string }) {
 
 function DayCell({
   day,
+  isToday,
+  todayActive,
   selected,
   onSelect,
 }: {
   day: StreakPopupDayView;
+  isToday: boolean;
+  todayActive: boolean;
   selected: boolean;
   onSelect: () => void;
 }) {
-  const label =
-    day.status === "today"
-      ? `${day.weekday}, today`
-      : day.status === "completed"
-        ? `${day.weekday}, completed`
-        : `${day.weekday}, missed`;
+  const label = isToday
+    ? `${day.weekday}, today${todayActive ? ", streak locked in" : ", keep streak alive"}`
+    : day.status === "completed"
+      ? `${day.weekday}, completed`
+      : `${day.weekday}, missed`;
 
   return (
     <button
@@ -86,25 +90,70 @@ function DayCell({
       onClick={onSelect}
       aria-label={label}
       aria-pressed={selected}
-      className="flex flex-col items-center gap-1.5 rounded-lg p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        "group relative flex flex-col items-center gap-1 rounded-xl p-1 outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring",
+        isToday && "bg-primary/5 px-1.5"
+      )}
     >
-      <span className="text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground">{day.weekday}</span>
       <span
         className={cn(
-          "flex size-9 items-center justify-center rounded-full border-2",
-          day.status === "completed" && "border-primary bg-primary text-primary-foreground",
-          day.status === "missed" && "border-border bg-muted/40 text-muted-foreground",
-          day.status === "today" && "border-primary bg-card text-primary",
-          selected && "ring-2 ring-ring ring-offset-2 ring-offset-card"
+          "text-[0.6875rem] font-medium uppercase tracking-wide transition-colors",
+          isToday ? "font-bold text-primary" : "text-muted-foreground group-hover:text-foreground"
         )}
       >
-        {day.status === "completed" ? (
-          <Check className="size-4" strokeWidth={2.5} aria-hidden />
-        ) : day.status === "today" ? (
-          <Flame className="size-4" aria-hidden />
-        ) : (
-          <X className="size-3.5" strokeWidth={2} aria-hidden />
+        {day.weekday}
+      </span>
+
+      <div className="relative flex items-center justify-center">
+        {/* Animated radiant aura rings for the current day streak */}
+        {isToday ? (
+          <>
+            <span
+              className="absolute -inset-1 rounded-full border border-primary/45 motion-safe:animate-[streak-today-halo_2.2s_ease-out_infinite] motion-reduce:animate-none"
+              aria-hidden
+            />
+            <span
+              className="absolute -inset-0.5 rounded-full bg-primary/20 motion-safe:animate-[streak-today-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
+              aria-hidden
+            />
+          </>
+        ) : null}
+
+        <span
+          className={cn(
+            "relative flex size-9 items-center justify-center rounded-full border-2 transition-all",
+            day.status === "completed" && !isToday && "border-primary bg-primary text-primary-foreground",
+            day.status === "missed" && "border-border bg-muted/40 text-muted-foreground",
+            isToday && todayActive && "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25",
+            isToday && !todayActive && "border-primary bg-card text-primary shadow-sm shadow-primary/20",
+            selected && "ring-2 ring-ring ring-offset-2 ring-offset-card"
+          )}
+        >
+          {day.status === "completed" && !isToday ? (
+            <Check className="size-4" strokeWidth={2.5} aria-hidden />
+          ) : isToday ? (
+            <Flame
+              className={cn(
+                "size-4.5 motion-safe:animate-[streak-flame-flicker_1.4s_ease-in-out_infinite] motion-reduce:animate-none",
+                todayActive ? "fill-current" : ""
+              )}
+              strokeWidth={2.25}
+              aria-hidden
+            />
+          ) : (
+            <X className="size-3.5" strokeWidth={2} aria-hidden />
+          )}
+        </span>
+      </div>
+
+      <span
+        className={cn(
+          "text-[9px] font-bold uppercase tracking-wider transition-opacity",
+          isToday ? "text-primary opacity-100" : "opacity-0 select-none"
         )}
+        aria-hidden
+      >
+        {isToday ? "Today" : "·"}
       </span>
     </button>
   );
@@ -147,7 +196,14 @@ export function DailyStreakPopup({ userId }: { userId: string }) {
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      try {
+        playFeedback("celebration");
+      } catch {
+        /* Sound feedback is best effort */
+      }
+    }
     if (!open && dialog.open) dialog.close();
     return () => {
       if (dialog.open) dialog.close();
@@ -192,6 +248,21 @@ export function DailyStreakPopup({ userId }: { userId: string }) {
           70% { transform: scale(1.08); opacity: 0; }
           100% { transform: scale(1.08); opacity: 0; }
         }
+        @keyframes streak-today-halo {
+          0% { transform: scale(0.9); opacity: 0.8; }
+          60% { transform: scale(1.35); opacity: 0; }
+          100% { transform: scale(1.35); opacity: 0; }
+        }
+        @keyframes streak-today-pulse {
+          0%, 100% { transform: scale(1); opacity: 0.25; }
+          50% { transform: scale(1.12); opacity: 0.6; }
+        }
+        @keyframes streak-flame-flicker {
+          0%, 100% { transform: scale(1) rotate(0deg); }
+          25% { transform: scale(1.16) rotate(-5deg); }
+          50% { transform: scale(1.08) rotate(3deg); }
+          75% { transform: scale(1.14) rotate(-3deg); }
+        }
       `}</style>
       <dialog
         ref={dialogRef}
@@ -234,8 +305,17 @@ export function DailyStreakPopup({ userId }: { userId: string }) {
                 <div key={day.day} role="listitem">
                   <DayCell
                     day={day}
+                    isToday={day.status === "today" || day.day === payload.today}
+                    todayActive={payload.todayActive}
                     selected={selectedDay === day.day}
-                    onSelect={() => setSelectedDay(day.day)}
+                    onSelect={() => {
+                      setSelectedDay(day.day);
+                      try {
+                        playFeedback("tick");
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
                   />
                 </div>
               ))}
