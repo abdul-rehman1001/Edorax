@@ -4,6 +4,8 @@ export type SyllabusChapter = {
   id: string;
   slug: string;
   title: string;
+  /** 1-based order inside the module. Lesson labels such as chapter 1.2 use this with the module order. */
+  order?: number;
   status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
   blockCount: number;
   blocksCompleted?: number;

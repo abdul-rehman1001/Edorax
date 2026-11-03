@@ -178,6 +178,23 @@ export type LearnerProfile = {
 
 export type ProfileUpdateInput = { name: string; timezone: string; skills: string[] };
 
+/** GET /api/v1/learner/streak-popup — once-per-local-day streak celebration. */
+export type StreakPopupDayView = {
+  day: string;
+  weekday: string;
+  status: "completed" | "missed" | "today";
+  seconds: number;
+};
+
+export type StreakPopupView = {
+  show: boolean;
+  streakCount: number;
+  todayActive: boolean;
+  today: string;
+  week: StreakPopupDayView[];
+  seenOn: string | null;
+};
+
 export const INSTRUCTOR_ACCESS_ERROR_CODES = {
   ALREADY_INSTRUCTOR: "ALREADY_INSTRUCTOR",
   REQUEST_PENDING: "REQUEST_PENDING",

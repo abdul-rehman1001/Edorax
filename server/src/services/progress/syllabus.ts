@@ -37,6 +37,7 @@ export function decorateSyllabus(args: {
       id: chapter.id,
       slug: chapter.slug,
       title: chapter.title,
+      order: chapter.order,
       status: args.progressByChapter.get(chapter.id) ?? "NOT_STARTED",
       blockCount: chapter.blockCount,
       blocksCompleted: chapter.blocksCompleted ?? 0,

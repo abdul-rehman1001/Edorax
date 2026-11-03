@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ChapterRefText } from "../components/learn/chapter-refs";
 
 /**
  * One inline markdown parser for short author strings (objectives, learning log
@@ -9,12 +10,14 @@ import type { ReactNode } from "react";
  * - Code spans win: markers inside backticks stay literal.
  * - Bold may contain italic and code; italic may contain bold and code.
  * - A marker with no partner (a lone `**`, `*` or backtick) stays literal text.
+ * - Chapter references like "chapter 1.2" are linked when a context is available.
  */
 type InlineToken =
   | { kind: "text"; value: string }
   | { kind: "code"; value: string }
   | { kind: "strong"; children: InlineToken[] }
-  | { kind: "em"; children: InlineToken[] };
+  | { kind: "em"; children: InlineToken[] }
+  | { kind: "chapter-ref"; label: string; lessonLabel: string };
 
 /** Index of the backtick closing a code span opened at `start`, or -1. */
 function closingBacktick(text: string, start: number): number {
@@ -68,6 +71,15 @@ function closingItalic(text: string, start: number): number {
   return -1;
 }
 
+const CHAPTER_REF = /\b(chapter|lesson)\s+(\d{1,2})\.(\d{1,2})\b/gi;
+
+function findChapterRef(text: string, startIndex: number): { match: RegExpExecArray; index: number } | null {
+  CHAPTER_REF.lastIndex = startIndex;
+  const match = CHAPTER_REF.exec(text);
+  if (!match || match.index === undefined) return null;
+  return { match, index: match.index };
+}
+
 export function tokenizeInlineMarkdown(text: string, insideBold = false, insideItalic = false): InlineToken[] {
   const tokens: InlineToken[] = [];
   let buffer = "";
@@ -101,7 +113,6 @@ export function tokenizeInlineMarkdown(text: string, insideBold = false, insideI
         i = end + 2;
         continue;
       }
-      // An unmatched `**` is literal; it must not fall through to two italic markers.
       buffer += "**";
       i += 2;
       continue;
@@ -115,6 +126,21 @@ export function tokenizeInlineMarkdown(text: string, insideBold = false, insideI
         i = end + 1;
         continue;
       }
+    }
+
+    const chapterRef = findChapterRef(text, i);
+    if (chapterRef && chapterRef.index === i) {
+      flush();
+      const moduleNum = chapterRef.match[2]!;
+      const chapterNum = chapterRef.match[3]!;
+      const lessonLabel = `${moduleNum}.${chapterNum}`;
+      tokens.push({
+        kind: "chapter-ref",
+        label: chapterRef.match[0],
+        lessonLabel,
+      });
+      i += chapterRef.match[0].length;
+      continue;
     }
 
     buffer += char;
@@ -145,11 +171,13 @@ function renderTokens(tokens: InlineToken[], keyPrefix: string): ReactNode[] {
         );
       case "em":
         return <em key={key}>{renderTokens(token.children, `${key}.`)}</em>;
+      case "chapter-ref":
+        return <ChapterRefText key={key} text={token.label} />;
     }
   });
 }
 
-/** Inline markdown as React nodes (bold, italic, code). */
+/** Inline markdown as React nodes (bold, italic, code, chapter links). */
 export function parseInlineMarkdown(text: string): ReactNode[] {
   return renderTokens(tokenizeInlineMarkdown(text), "");
 }
@@ -158,8 +186,8 @@ function tokensToText(tokens: InlineToken[]): string {
   return tokens
     .map((token) => {
       if (token.kind === "code") return token.value;
-      // Stray markers are noise when read aloud; code span content stays exact.
       if (token.kind === "text") return token.value.replace(/\*\*|`/g, "");
+      if (token.kind === "chapter-ref") return token.label;
       return tokensToText(token.children);
     })
     .join("");

@@ -193,12 +193,18 @@ export function Checklist({
   const toggle = useCallback(
     (id: string, next: boolean) => {
       const previous = checkedMap[id] ?? false;
-      setCheckedMap((prev) => ({ ...prev, [id]: next }));
-      void Promise.resolve((onToggleProp ?? ctx?.onToggle)?.(id, next)).catch(() => {
-        setCheckedMap((prev) => ({ ...prev, [id]: previous }));
-      });
+      const nextMap = { ...checkedMap, [id]: next };
+      setCheckedMap(nextMap);
+      void Promise.resolve((onToggleProp ?? ctx?.onToggle)?.(id, next))
+        .then(() => {
+          const finished = normalizedItems.length > 0 && normalizedItems.every((item) => nextMap[item.id]);
+          if (finished) window.dispatchEvent(new CustomEvent("buildment:reflection-complete"));
+        })
+        .catch(() => {
+          setCheckedMap((prev) => ({ ...prev, [id]: previous }));
+        });
     },
-    [checkedMap, ctx, onToggleProp]
+    [checkedMap, ctx, normalizedItems, onToggleProp]
   );
 
   const checkedCount = useMemo(

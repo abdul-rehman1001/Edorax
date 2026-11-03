@@ -8,6 +8,7 @@ import { loadLearnerWorkspace } from "../services/learner/workspace.js";
 import { loadMenteeDashboard } from "../services/learner/load-mentee-dashboard.js";
 import { loadLearnerProgress } from "../services/learner/progress.js";
 import * as weeklyGoal from "../services/learner/weekly-goal.js";
+import { dismissStreakPopup, loadStreakPopup } from "../services/learner/streak-popup.js";
 import { loadProfile, updateProfile } from "../services/learner/profile.js";
 import { requestInstructorAccess } from "../services/instructor-access/request.js";
 import type { ProfileUpdateInput } from "../shared/api/learner.js";
@@ -62,6 +63,16 @@ export async function acknowledgeStreakMilestone(req: Request, res: Response) {
   const { milestone } = req.params as unknown as { milestone: StreakMilestone };
   await weeklyGoal.acknowledgeStreakMilestone(req.user!.id, milestone);
   noContent(res);
+}
+
+// GET /api/v1/learner/streak-popup
+export async function streakPopup(req: Request, res: Response) {
+  ok(res, await loadStreakPopup(req.user!.id));
+}
+
+// POST /api/v1/learner/streak-popup/dismiss
+export async function dismissStreakPopupHandler(req: Request, res: Response) {
+  ok(res, await dismissStreakPopup(req.user!.id));
 }
 
 // GET /api/v1/learner/profile

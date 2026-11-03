@@ -6,6 +6,8 @@ export type QuizBlockGrade = {
   selected: string[];
   isCorrect: boolean | null;
   explanation?: string;
+  /** Present once the learner is allowed to see the right answer. */
+  correctOptionIds?: string[];
 };
 
 export type QuizSessionContextValue = {
