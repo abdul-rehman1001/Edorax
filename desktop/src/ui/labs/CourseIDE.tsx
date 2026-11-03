@@ -219,7 +219,7 @@ export function CourseIDEPanel({
           ? { width: `${widthPercent}%` }
           : undefined
       }
-      className={`${!ide.open ? 'hidden' : 'flex'} ${ide.focused || smallWindow ? 'min-w-0 flex-1' : widthPercent ? 'min-w-[320px] max-w-[85%]' : 'w-[52%] min-w-[380px] max-w-[900px]'} h-full shrink-0 flex-col bg-background`}
+      className={`${!ide.open ? 'hidden' : 'flex'} ${ide.focused || smallWindow ? 'min-w-0 flex-1' : widthPercent ? 'min-w-[320px] max-w-[85%]' : 'w-[52%] min-w-[380px] max-w-[900px]'} h-full shrink-0 flex-col border-l border-border bg-background`}
     >
       <div className="min-h-0 flex-1 overflow-hidden">
         <div hidden={ide.selected !== 'scratch'} className="h-full">
