@@ -1,7 +1,8 @@
 import { DesktopToolbar } from './DesktopToolbar';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { AccountMenu } from '../auth/AccountMenu';
 import type { Session } from '../auth/useSession';
+
 export function WorkspaceHeader({
   selected,
   courseTitle,
@@ -40,10 +41,30 @@ export function WorkspaceHeader({
         <AccountMenu session={session} />
       </DesktopToolbar>
       {(authError || authBusy) && (
-        <div className="shrink-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-8 py-3 text-sm">
-          <p role={authError ? 'alert' : 'status'}>
-            {authError || 'Complete sign-in in your browser, then return here.'}
-          </p>
+        <div
+          className={`shrink-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b px-8 py-3 text-xs ${
+            authError
+              ? 'border-rose-500/20 bg-rose-500/10 text-rose-900 dark:text-rose-200'
+              : 'border-border bg-card text-foreground'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            {authError ? (
+              <AlertCircle
+                size={15}
+                className="shrink-0 text-rose-600 dark:text-rose-400"
+              />
+            ) : (
+              <Loader2
+                size={15}
+                className="shrink-0 animate-spin text-primary"
+              />
+            )}
+            <p role={authError ? 'alert' : 'status'} className="truncate">
+              {authError ||
+                'Complete sign-in in your browser window, then return here.'}
+            </p>
+          </div>
           {authBusy ? (
             <button
               onClick={() =>
@@ -53,14 +74,14 @@ export function WorkspaceHeader({
                     setAuthError('Could not cancel sign-in. Please try again.'),
                   )
               }
-              className="underline underline-offset-4"
+              className="font-medium underline underline-offset-4 hover:opacity-80"
             >
               Cancel sign-in
             </button>
           ) : (
             <button
               onClick={() => setAuthError('')}
-              className="underline underline-offset-4"
+              className="font-medium underline underline-offset-4 hover:opacity-80"
             >
               Dismiss
             </button>

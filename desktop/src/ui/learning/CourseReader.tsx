@@ -72,6 +72,7 @@ function CourseReaderBody({
     () => (lesson ? lessonHeadings(lesson.document) : null),
     [lesson?.document],
   );
+  const variant = variantForTrack(lesson?.track ?? null);
   const showHeadings =
     lesson?.chapter.readerMode !== 'QUIZ' &&
     !(lesson?.content?.predictGate && !lesson.content.predictRevealed);
@@ -304,6 +305,24 @@ function CourseReaderBody({
                   >
                     {lesson.chapter.title}
                   </h1>
+                  {lesson.course.projectGoal &&
+                    lesson.chapter.readerMode !== 'QUIZ' && (
+                      <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          The project:{' '}
+                        </span>
+                        {lesson.course.projectGoal.trim().replace(/\.+$/, '')}.
+                      </div>
+                    )}
+                  {variant && lesson.chapter.readerMode !== 'QUIZ' && (
+                    <div className="mt-2 rounded-xl bg-muted/60 px-4 py-2.5 text-sm leading-relaxed text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        You are building:{' '}
+                      </span>
+                      {variant.productName} ({variant.label.toLowerCase()}{' '}
+                      variant)
+                    </div>
+                  )}
                   {lesson.locked ? (
                     <div className="mt-6">
                       <p>
