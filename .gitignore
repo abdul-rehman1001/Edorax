@@ -59,6 +59,7 @@ frontend/public/vendor/mermaid.min.js
 # Generated Theia workspace assets
 /desktop/ide/lib/
 /desktop/ide/src-gen/
+/desktop/ide/plugins/
 /desktop/ide/esbuild.mjs
 /desktop/ide/gen-esbuild.config.js
 /desktop/ide/.theia/

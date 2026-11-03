@@ -1,12 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  ExternalLink,
-  FolderOpen,
-  FolderPlus,
-  Code2,
-  Square,
-  Terminal,
-} from 'lucide-react';
+import { FolderOpen, FolderPlus, Code2 } from 'lucide-react';
 import type { IDESession } from '../../domain/ide';
 export type LessonSnippetRequest = {
   id: number;
@@ -22,11 +15,10 @@ export function focusTheiaHost() {
 
 export function TheiaWorkspace({
   active,
-  focused,
   snippet,
 }: {
   active: boolean;
-  focused: boolean;
+  focused?: boolean;
   snippet: LessonSnippetRequest | null;
 }) {
   const api = window.buildment.ide!;
@@ -43,7 +35,6 @@ export function TheiaWorkspace({
   const [session, setSession] = useState<IDESession | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
   const report = (error: unknown) =>
     setError(
       (error instanceof Error ? error.message : String(error)).replace(
@@ -116,6 +107,7 @@ export function TheiaWorkspace({
       window.removeEventListener('scroll', update, true);
     };
   }, [api, active, session, busy]);
+
   useEffect(() => {
     if (
       !active ||
@@ -127,15 +119,14 @@ export function TheiaWorkspace({
       return;
     imported.current = snippet.id;
     setError('');
-    void api
-      .importSnippet(snippet.source, snippet.filename)
-      .then(() => setMessage('Lesson snippet added as a new project file.'))
-      .catch(report);
+    void api.importSnippet(snippet.source, snippet.filename).catch(report);
   }, [api, active, session, snippet, busy]);
+
   useEffect(() => {
     if (!active || !session) return;
     void api.revealExplorer().catch(report);
   }, [api, active, session]);
+
   async function open(create: boolean) {
     if (
       session &&
@@ -146,7 +137,6 @@ export function TheiaWorkspace({
       return;
     setBusy(true);
     setError('');
-    setMessage('');
     try {
       const next = await api.open(create);
       if (next) {
@@ -159,108 +149,57 @@ export function TheiaWorkspace({
       setBusy(false);
     }
   }
+
   return (
     <section
       aria-label="Project IDE"
-      className="flex h-full min-h-[400px] min-w-0 flex-col overflow-hidden bg-background"
+      className="flex h-full min-h-[400px] min-w-0 flex-1 flex-col overflow-hidden bg-background"
     >
-      {!focused && (
-        <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border p-3 text-xs">
-          <span
-            className="mr-auto flex min-w-0 items-center gap-2 font-medium"
-            title={session?.folder}
-          >
-            <span
-              className={`size-2 rounded-full ${session ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`}
-            />
-            {session ? session.folder.split(/[/\\]/).pop() : 'Local project'}
-          </span>
-          <button
-            disabled={busy}
-            onClick={() => void open(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 hover:bg-muted"
-          >
-            <FolderPlus size={14} />
-            New project
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => void open(false)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 hover:bg-muted"
-          >
-            <FolderOpen size={14} />
-            Open folder
-          </button>
-          {session && (
-            <button
-              disabled={busy}
-              onClick={(event) => {
-                const rect = event.currentTarget.getBoundingClientRect();
-                void api
-                  .openWithMenu({ x: rect.left, y: rect.bottom })
-                  .catch(report);
-              }}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 hover:bg-muted"
-            >
-              <ExternalLink size={14} />
-              Open
-            </button>
-          )}
-          {session && (
-            <button
-              disabled={busy}
-              onClick={() => void api.newTerminal().catch(report)}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 hover:bg-muted"
-            >
-              <Terminal size={14} />
-              Terminal
-            </button>
-          )}
-          {session && (
-            <button
-              aria-label="Close project"
-              disabled={busy}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    'Close this project? Save unsaved files first.',
-                  )
-                )
-                  void api
-                    .stop()
-                    .then(() => setSession(null))
-                    .catch(report);
-              }}
-              className="rounded-lg p-2 hover:bg-muted"
-            >
-              <Square size={14} />
-            </button>
-          )}
-        </header>
-      )}
-      {!focused && (error || message || busy) && (
-        <p
-          role={error ? 'alert' : 'status'}
-          className={`shrink-0 border-b border-border px-4 py-2 text-xs ${error ? 'text-red-600' : 'text-muted-foreground'}`}
-        >
-          {error || (busy ? 'Opening your local workspace…' : message)}
-        </p>
-      )}
       <div ref={host} className="min-h-0 flex-1" tabIndex={-1}>
         {!session && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-            <Code2 size={30} className="text-muted-foreground" />
-            <h3 className="text-xl font-medium tracking-tight">
-              A project of your own
-            </h3>
-            <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-              Create a project or open a folder on your computer. Edit files,
-              search your code, and use the terminal without leaving your
-              lesson.
-            </p>
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
+            <div className="flex size-12 items-center justify-center rounded-2xl border border-border bg-muted/40">
+              <Code2 size={24} className="text-muted-foreground" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-semibold tracking-tight">
+                Open your workspace
+              </h3>
+              <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+                Create a new project or select an existing folder on your
+                computer to launch the full IDE.
+              </p>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+              <button
+                disabled={busy}
+                onClick={() => void open(true)}
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                <FolderPlus size={16} />
+                Create a new project
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => void open(false)}
+                className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                <FolderOpen size={16} />
+                Select folder
+              </button>
+            </div>
             {snippet && (
               <p className="text-xs text-muted-foreground">
-                Your lesson snippet will open after you choose a project.
+                Your lesson snippet will open automatically once you select a
+                folder.
+              </p>
+            )}
+            {(error || busy) && (
+              <p
+                role={error ? 'alert' : 'status'}
+                className={`mt-2 text-xs ${error ? 'text-red-600' : 'text-muted-foreground'}`}
+              >
+                {error || 'Starting IDE workspace…'}
               </p>
             )}
           </div>

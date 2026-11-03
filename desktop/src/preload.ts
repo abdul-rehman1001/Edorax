@@ -11,6 +11,8 @@ const api: DesktopAPI = {
     stop: () => ipcRenderer.invoke('ide:stop'),
     newTerminal: () => ipcRenderer.invoke('ide:terminal'),
     revealExplorer: () => ipcRenderer.invoke('ide:revealExplorer'),
+    selectTheme: () => ipcRenderer.invoke('ide:select-theme'),
+    openExtensions: () => ipcRenderer.invoke('ide:open-extensions'),
     openWithMenu: (position) =>
       ipcRenderer.invoke('ide:open-with-menu', position),
   },
