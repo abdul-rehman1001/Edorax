@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, PlayCircle, RotateCcw, X } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, PlayCircle, RotateCcw, X } from "lucide-react";
 import { Dot } from "@/components/brand/dot";
 import { Button } from "@/components/ui/button";
 import { playFeedback } from "@/lib/sound-feedback";
@@ -17,7 +17,15 @@ import { useMascot } from "@/lib/engagement/use-mascot";
 type QuizResultSummary = { score: number; maxScore: number; questions: number };
 
 type QuizSubmitResponse = QuizResultSummary & {
-  grades: Array<{ blockId: string; isCorrect: boolean | null; score: number | null; maxScore: number | null; selected: string[] }>;
+  grades: Array<{
+    blockId: string;
+    isCorrect: boolean | null;
+    score: number | null;
+    maxScore: number | null;
+    selected: string[];
+    explanation?: string;
+    correctOptionIds?: string[];
+  }>;
   assessment: QuizAssessment | null;
 };
 
@@ -118,11 +126,12 @@ export function QuizChapterSessionClient({
     () => missedQuestionIndices(stepIds, quizBlockIds, blockGrades),
     [stepIds, quizBlockIds, blockGrades]
   );
+  const submissionComplete = Boolean(chapterComplete || assessmentPassed);
   const visibleIndices = useMemo(
-    () => retryMissed && !perfectScore && missedIndices.length > 0
-      ? missedIndices
-      : Array.from({ length: total }, (_, stepIndex) => stepIndex),
-    [retryMissed, perfectScore, missedIndices, total]
+    () => (launched && submissionComplete) || !(retryMissed && !perfectScore && missedIndices.length > 0)
+      ? Array.from({ length: total }, (_, stepIndex) => stepIndex)
+      : missedIndices,
+    [launched, submissionComplete, retryMissed, perfectScore, missedIndices, total]
   );
   const position = Math.max(0, visibleIndices.indexOf(index));
   const activeIndex = visibleIndices[position] ?? 0;
@@ -228,13 +237,7 @@ export function QuizChapterSessionClient({
       track({ type: "quiz_submitted", chapterId });
       setDirtyBlockIds(new Set());
 
-      const gradesFromApi = Array.isArray(body.grades)
-        ? (body.grades as Array<{
-            blockId: string;
-            isCorrect: boolean | null;
-            selected?: string[];
-          }>)
-        : [];
+      const gradesFromApi = Array.isArray(body.grades) ? body.grades : [];
       if (gradesFromApi.length > 0) {
         setBlockGrades((previous) => {
           const next = { ...previous };
@@ -245,7 +248,8 @@ export function QuizChapterSessionClient({
                 ? grade.selected.filter((item): item is string => typeof item === "string")
                 : (existing?.selected ?? []),
               isCorrect: grade.isCorrect,
-              explanation: existing?.explanation,
+              explanation: grade.explanation ?? existing?.explanation,
+              correctOptionIds: grade.correctOptionIds ?? existing?.correctOptionIds,
             };
           }
           return next;
@@ -307,7 +311,7 @@ export function QuizChapterSessionClient({
         }
         return;
       }
-      if (submitting || movingNext) return;
+      if (submitting || movingNext || submissionComplete) return;
 
       if (event.key === "ArrowLeft") {
         event.preventDefault();
@@ -326,7 +330,7 @@ export function QuizChapterSessionClient({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [launched, submitting, movingNext, position, visibleIndices.length, quizBlockIds.length, perfectScore, go, submitQuiz]);
+  }, [launched, submitting, movingNext, submissionComplete, position, visibleIndices.length, quizBlockIds.length, perfectScore, go, submitQuiz]);
 
   const moveToNextChapter = async () => {
     if (!nextHref || movingNext) return;
@@ -381,13 +385,27 @@ export function QuizChapterSessionClient({
   if (total === 0) return null;
 
   if (!launched) {
+    const buttonLabel = submissionComplete
+      ? "Review submission"
+      : assessment
+        ? "Continue assessment"
+        : "Start assessment";
+
     return (
       <section className="not-prose mb-10 rounded-2xl border bg-card p-5 text-card-foreground shadow-sm sm:p-7" aria-labelledby="quiz-launch-title">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Chapter assessment</p>
-        <h2 id="quiz-launch-title" className="mt-2 text-2xl font-semibold tracking-tight">{chapterTitle}</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Work through one question at a time in a focused window. Automatic questions count for 80% and AI-graded written answers count for 20%.
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          {submissionComplete ? "Assessment complete" : "Chapter assessment"}
         </p>
+        <h2 id="quiz-launch-title" className="mt-2 text-2xl font-semibold tracking-tight">{chapterTitle}</h2>
+        {submissionComplete ? (
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            This assessment is finished. Review every question with your answer, the correct answer, and the explanation.
+          </p>
+        ) : (
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Work through one question at a time in a focused window. Automatic questions count for 80% and AI-graded written answers count for 20%.
+          </p>
+        )}
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <Button
             type="button"
@@ -396,16 +414,36 @@ export function QuizChapterSessionClient({
               requestQuizFullscreen();
             }}
             className="gap-2"
+            variant={submissionComplete ? "outline" : "default"}
           >
-            <PlayCircle className="size-4" aria-hidden />
-            {assessment ? "Continue assessment" : "Start assessment"}
+            {submissionComplete ? (
+              <CheckCircle2 className="size-4" aria-hidden />
+            ) : (
+              <PlayCircle className="size-4" aria-hidden />
+            )}
+            {buttonLabel}
           </Button>
-          <span className="text-sm text-muted-foreground">Pass at {assessment?.passingScore ?? 70}% · three graded attempts per written question</span>
+          {!submissionComplete && (
+            <span className="text-sm text-muted-foreground">Pass at {assessment?.passingScore ?? 70}% · three graded attempts per written question</span>
+          )}
         </div>
-        {assessment ? <p className="mt-4 text-sm font-medium">Current score: {assessment.score}% · {assessment.passed ? "Passed" : "Not passed yet"}</p> : null}
+        {assessment ? (
+          <p className={cn("mt-4 text-sm font-medium", assessment.passed && "text-ok")}>
+            {assessment.passed ? (
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="size-4" aria-hidden />
+                Passed with {assessment.score}%
+              </span>
+            ) : (
+              <>Current score: {assessment.score}% · Not passed yet</>
+            )}
+          </p>
+        ) : null}
       </section>
     );
   }
+
+  const fullReview = submissionComplete;
 
   return (
     <QuizSessionContext.Provider value={sessionValue}>
@@ -421,8 +459,15 @@ export function QuizChapterSessionClient({
             Quiz: {chapterTitle}
           </h1>
           <p className="mt-3 text-base font-bold text-muted-foreground">
-            Question {position + 1} of {visibleIndices.length}{retryMissed && !perfectScore ? " to retry" : ""}
+            {fullReview
+              ? "Review your submission"
+              : `Question ${position + 1} of ${visibleIndices.length}${retryMissed && !perfectScore ? " to retry" : ""}`}
           </p>
+          {fullReview ? (
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Each question shows the answer you submitted, the correct answer, and the explanation.
+            </p>
+          ) : null}
           <QuizIntegrityPanel integrity={integrity} questionCount={total} onExitQuiz={exitQuiz} />
           {individualActivityCount > 0 ? (
             <p className="mt-2 text-base text-muted-foreground">
@@ -475,6 +520,7 @@ export function QuizChapterSessionClient({
               </div>
             </div>
           ) : null}
+          {fullReview ? null : (
           <div
             className="mt-4 h-2 overflow-hidden rounded-sm bg-secondary"
             role="progressbar"
@@ -488,6 +534,7 @@ export function QuizChapterSessionClient({
               style={{ width: `${progressPct}%` }}
             />
           </div>
+          )}
         </header>
 
         {scoreSummary && resultPopupOpen ? (
@@ -652,10 +699,18 @@ export function QuizChapterSessionClient({
           {steps.map((step, stepIndex) => (
             <div
               key={stepIds[stepIndex] ?? stepIndex}
-              className={cn(stepIndex === activeIndex ? "block" : "hidden")}
-              aria-hidden={stepIndex !== activeIndex}
+              className={cn(
+                fullReview || stepIndex === activeIndex ? "block" : "hidden",
+                fullReview && "mb-12 border-b border-border pb-12 last:mb-0 last:border-b-0"
+              )}
+              aria-hidden={!fullReview && stepIndex !== activeIndex}
               data-integrity-step={stepIds[stepIndex]}
             >
+              {fullReview ? (
+                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Question {stepIndex + 1}
+                </p>
+              ) : null}
               {step}
             </div>
           ))}
@@ -682,6 +737,12 @@ export function QuizChapterSessionClient({
         ) : null}
 
         <footer className="mt-10 flex items-center justify-between gap-3 border-t border-border pt-6">
+          {fullReview ? (
+            <Button type="button" variant="outline" size="sm" onClick={exitQuiz}>
+              Close review
+            </Button>
+          ) : (
+          <>
           <Button
             type="button"
             variant="outline"
@@ -766,6 +827,8 @@ export function QuizChapterSessionClient({
                 </Button>
               ) : null}
             </div>
+          )}
+          </>
           )}
         </footer>
         {submitError ? <p className="mt-3 text-sm text-destructive" role="alert">{submitError}</p> : null}

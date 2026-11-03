@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
+import { ChapterRefText } from './chapter-refs';
 
 // Quiz prompts are Markdown, not executable MDX or HTML.
 export function MarkdownText({ text }: { text: string }) {
@@ -24,7 +25,7 @@ function MarkdownNode({ node }: { node: any }) {
     case 'root':
       return <>{children}</>;
     case 'text':
-      return <>{node.value}</>;
+      return <ChapterRefText text={String(node.value ?? '')} />;
     case 'paragraph':
       return (
         <span className="mb-2 block whitespace-pre-wrap leading-7 last:mb-0">

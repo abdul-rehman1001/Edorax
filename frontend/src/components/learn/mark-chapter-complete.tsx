@@ -75,6 +75,14 @@ function ChapterCompletionMoment({
   const celebrationAnchorRef = useRef<HTMLDivElement>(null);
   const { track } = useMascot();
 
+  useEffect(() => {
+    const onReflectionComplete = () => {
+      router.refresh();
+    };
+    window.addEventListener("buildment:reflection-complete", onReflectionComplete);
+    return () => window.removeEventListener("buildment:reflection-complete", onReflectionComplete);
+  }, [router]);
+
   function prefersReducedMotion() {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }

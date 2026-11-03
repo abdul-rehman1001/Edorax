@@ -64,18 +64,29 @@ export function QuizOptions({
                 className={cn(
                   "flex size-6 items-center justify-center border-2 transition-colors",
                   multiple ? "rounded-sm" : "rounded-full",
-                  isIncorrect && "border-foreground",
-                  isCorrect && "border-ok",
+                  isIncorrect && "border-foreground bg-foreground/10",
+                  isCorrect && "border-ok bg-ok",
                   plain && (isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground bg-card")
                 )}
               >
-                {plain && isSelected ? (
+                {isSelected ? (
                   multiple ? (
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path
+                        d="M2 6l3 3 5-5"
+                        stroke={isCorrect ? "white" : "currentColor"}
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   ) : (
-                    <span className="size-2.5 rounded-full bg-primary-foreground" />
+                    <span
+                      className={cn(
+                        "size-2.5 rounded-full",
+                        isCorrect ? "bg-white" : isIncorrect ? "bg-foreground" : "bg-primary-foreground"
+                      )}
+                    />
                   )
                 ) : null}
               </span>

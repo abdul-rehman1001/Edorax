@@ -30,6 +30,7 @@ describe("quiz review rendering", () => {
     expect(html).toContain('aria-checked="true"');
     expect(html).toContain('disabled=""');
     expect(html).toContain("Review feedback");
+    expect(html).toContain("rounded-full bg-white");
   });
 
   it("renders an incorrect answer without locking retries", () => {

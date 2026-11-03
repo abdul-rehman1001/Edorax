@@ -34,8 +34,58 @@ function keyHint(count: number): string {
   return `1-${count} to answer`;
 }
 
-function ResultBanner({ result }: { result: RespondResult }) {
+type ParsedExplanationLine = {
+  optionLabel: string;
+  explanation: string;
+};
+
+const QUOTED_LINE = /^\s*["“](.+?)["”]\s*[:.,-]?\s*(.*)$/;
+
+function parseExplanationLines(explanation: string): ParsedExplanationLine[] {
+  return explanation
+    .split("\n")
+    .filter((line) => line.trim())
+    .map((line) => {
+      const match = QUOTED_LINE.exec(line);
+      if (match) {
+        return { optionLabel: match[1]!, explanation: match[2]! };
+      }
+      return null;
+    })
+    .filter((item): item is ParsedExplanationLine => item !== null);
+}
+
+function hasStructuredExplanation(explanation: string): boolean {
+  const lines = explanation.split("\n").filter((line) => line.trim());
+  return lines.length > 0 && lines.every((line) => QUOTED_LINE.test(line));
+}
+
+function ResultBanner({
+  result,
+  options,
+  selected,
+  correctOptionIds,
+}: {
+  result: RespondResult;
+  options: { id: string; label: string }[];
+  selected: string[];
+  correctOptionIds?: string[];
+}) {
   const correct = result.isCorrect === true;
+  const selectedSet = new Set(selected);
+  const correctSet = new Set(correctOptionIds ?? []);
+
+  const parsedLines = result.explanation ? parseExplanationLines(result.explanation) : [];
+  const isStructured = result.explanation ? hasStructuredExplanation(result.explanation) : false;
+
+  const normalizeLabel = (label: string) =>
+    label.toLowerCase().replace(/\s+/g, " ").replace(/[.?!\s]+$/, "").trim();
+
+  const optionLabelToId = new Map<string, string>();
+  for (const option of options) {
+    optionLabelToId.set(normalizeLabel(option.label), option.id);
+  }
+
   return (
     <div
       className={cn(
@@ -68,7 +118,58 @@ function ResultBanner({ result }: { result: RespondResult }) {
               </span>
             ) : null}
           </div>
-          {result.explanation ? (
+          {result.explanation && isStructured && parsedLines.length > 0 ? (
+            <ul className="mt-3 space-y-3">
+              {parsedLines.map((line, index) => {
+                const optionId = optionLabelToId.get(normalizeLabel(line.optionLabel));
+                const isSelected = optionId ? selectedSet.has(optionId) : false;
+                const isCorrectOption = optionId ? correctSet.has(optionId) : false;
+
+                return (
+                  <li
+                    key={index}
+                    className={cn(
+                      "rounded-md border px-3 py-2.5",
+                      isCorrectOption
+                        ? "border-ok/50 bg-ok/10"
+                        : isSelected
+                          ? "border-foreground/30 bg-foreground/5"
+                          : "border-border/50 bg-card/50"
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                        {isCorrectOption && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-ok/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ok">
+                            <CheckCircle2 className="size-2.5" />
+                            Correct
+                          </span>
+                        )}
+                        {isSelected && !isCorrectOption && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-foreground/70">
+                            Your pick
+                          </span>
+                        )}
+                        {isSelected && isCorrectOption && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-ok/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ok">
+                            Your pick
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="mt-1.5 text-sm font-semibold leading-snug text-foreground">
+                      {line.optionLabel}
+                    </p>
+                    {line.explanation && (
+                      <p className="mt-1 text-sm leading-relaxed text-foreground/80">
+                        {line.explanation}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : result.explanation ? (
             <div className="mt-1.5 space-y-1.5 leading-relaxed">
               {result.explanation.split("\n").filter((line) => line.trim()).map((line, index) => (
                 <p key={index}>{line}</p>
@@ -276,12 +377,13 @@ export function QuizClient({
       ? quizSession.blockGrades[id]
       : undefined;
   const wizardShowingReview = Boolean(wizardReviewGrade && wizardReviewGrade.isCorrect !== null);
+  const revealedCorrectIds = wizardReviewGrade?.correctOptionIds ?? correctOptionIds ?? [];
   const optionsLocked =
     (wizardShowingReview && wizardReviewGrade?.isCorrect === true) || result?.isCorrect === true;
   const hasAnswered = result !== null;
   const settled = hasAnswered && (result.isCorrect === true || config.allowRetry === false);
   const showWrongOptions = result?.isCorrect === false;
-  const showCorrectOptions = result?.isCorrect === true;
+  const showCorrectOptions = result?.isCorrect === true || (wizardShowingReview && revealedCorrectIds.length > 0);
 
   // A-D / 1-N select an option; Enter submits (standalone "Check answer"). Scoped to this quiz, and
   // guarded so it never fires while typing or with a modifier, matching the reader's `[`/`]` guard.
@@ -300,6 +402,15 @@ export function QuizClient({
             )
           : false;
         if (!visible) return;
+        // A full-submission review shows every question at once. Number keys then belong to the
+        // question the learner is focused on, not to every visible question on the page.
+        const foreignVisible = [...document.querySelectorAll('[role="radio"], [role="checkbox"]')].some(
+          (el) => el instanceof HTMLElement && el.offsetParent !== null && !cardRef.current?.contains(el)
+        );
+        if (foreignVisible) {
+          const active = document.activeElement;
+          if (!cardRef.current || !active || !cardRef.current.contains(active)) return;
+        }
       } else {
         const active = document.activeElement;
         if (!cardRef.current || !active || !cardRef.current.contains(active)) return;
@@ -336,7 +447,7 @@ export function QuizClient({
         disabled={optionsLocked}
         multiple={isMultiple}
         incorrectOptionIds={showWrongOptions ? wrongSelection : []}
-        correctOptionIds={showCorrectOptions ? selected : []}
+        correctOptionIds={showCorrectOptions ? (revealedCorrectIds.length > 0 ? revealedCorrectIds : selected) : []}
         showAnswerState={showWrongOptions || showCorrectOptions}
       />
       {optionCount > 0 && !optionsLocked ? (
@@ -348,7 +459,12 @@ export function QuizClient({
   );
 
   const actionsBlock = hasAnswered && result && (presentation !== "wizard" || wizardShowingReview) ? (
-      <ResultBanner result={result} />
+      <ResultBanner
+        result={result}
+        options={config.options}
+        selected={selected}
+        correctOptionIds={revealedCorrectIds.length > 0 ? revealedCorrectIds : result.isCorrect === true ? selected : correctOptionIds}
+      />
     ) : presentation === "wizard" ? (
       <p className="text-xs text-muted-foreground" aria-live="polite">
         {selected.length === 0

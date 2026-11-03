@@ -51,6 +51,11 @@ describe("parseInlineMarkdown", () => {
   it("escapes HTML instead of injecting it", () => {
     expect(html("**<img src=x>**")).toBe(`${STRONG}&lt;img src=x&gt;</strong>`);
   });
+
+  it("leaves a chapter reference as text until the reader can link it", () => {
+    expect(html("See chapter 1.2")).toBe("See chapter 1.2");
+    expect(inlineMarkdownToText("See chapter 01.02")).toBe("See chapter 01.02");
+  });
 });
 
 describe("inlineMarkdownToText", () => {

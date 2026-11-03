@@ -20,6 +20,8 @@
     "./components/learn/checklist": "./src/components/learn/checklist.tsx",
     "./components/learn/learning-log": "./src/components/learn/learning-log.tsx",
     "./components/learn/*": "./src/components/learn/*",
+    "./components/learn/chapter-link-context": "./src/components/learn/chapter-link-context.tsx",
+    "./components/learn/chapter-refs": "./src/components/learn/chapter-refs.tsx",
     "./labs/Lab": "./src/labs/Lab.tsx",
     "./labs/catalog": "./src/labs/catalog.ts",
     "./labs/types": "./src/labs/types.ts",
