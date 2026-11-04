@@ -3,7 +3,7 @@ import request from "supertest";
 import { createApp } from "../../src/app.js";
 import { prisma } from "../../src/db/prisma.js";
 import { createCourseFixture } from "../helpers/fixtures.js";
-import { ensureBaselineRelease, type ReleaseContent } from "../../src/services/courses/releases.js";
+import { ensureBaselineRelease, upgradeEnrollmentToRelease, type ReleaseContent } from "../../src/services/courses/releases.js";
 import { getCourseOverview } from "../../src/services/courses/overview.js";
 import { publishDashboardNewChapterRelease } from "../../src/services/teach/publish-course-release.js";
 import { recomputeEnrollmentRollup } from "../../src/services/progress/compute.js";
@@ -298,5 +298,10 @@ describe("course release auto-upgrade and alumni notification", () => {
     expect((await prisma.response.findUniqueOrThrow({ where: { id: readingAnswer.id } })).blockId).toBe(fx.mustReadBlock.id);
     expect(await prisma.response.count({ where: { blockId: matchingBlock.id, attempt: 3 } })).toBe(1);
     expect(await prisma.response.count({ where: { blockId: changedBlock.id } })).toBe(0);
+
+    // Repairing an already upgraded enrollment must not duplicate submissions.
+    await prisma.$transaction((tx) => upgradeEnrollmentToRelease(tx, fx.enrollment.id, release.id, { repair: true }));
+    expect(await prisma.response.count({ where: { blockId: matchingBlock.id, attempt: 3 } })).toBe(1);
+    expect((await prisma.enrollment.findUniqueOrThrow({ where: { id: fx.enrollment.id } })).chaptersCompleted).toBeGreaterThan(0);
   });
 });

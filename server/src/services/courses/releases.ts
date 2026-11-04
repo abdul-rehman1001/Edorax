@@ -4,6 +4,7 @@ import { prisma } from "../../db/prisma.js";
 import { resolveCourseFamily, type CourseFamily } from "../../shared/lib/course-tracks.js";
 import { NotFoundError } from "../../utils/errors.js";
 import { recomputeEnrollmentRollup } from "../progress/compute.js";
+import { canonical } from "../teach/course-update-matching.js";
 
 export type ReleaseChapter = {
   id: string; key: string | null; slug: string; title: string; order: number;
@@ -110,6 +111,8 @@ export async function upgradeEnrollmentToRelease(
   targetReleaseId: string,
   options?: { repair?: boolean }
 ) {
+  // Serialize concurrent overview/reader requests before checking the pinned release.
+  await tx.$queryRaw`SELECT "id" FROM "Enrollment" WHERE "id" = ${enrollmentId} FOR UPDATE`;
   const enrollment = await tx.enrollment.findUniqueOrThrow({
     where: { id: enrollmentId },
     include: {
@@ -229,7 +232,7 @@ export async function upgradeEnrollmentToRelease(
     // A changed question must never inherit an answer from a different question.
     const targetBlock = targetChapterWithBlocks.blocks.find((block) =>
       block.type === oldBlock.type && block.order === oldBlock.order &&
-      JSON.stringify(block.config) === JSON.stringify(oldBlock.config)
+      canonical(block.config) === canonical(oldBlock.config)
     );
 
     if (!targetBlock) continue;
