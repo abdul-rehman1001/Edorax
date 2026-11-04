@@ -3,9 +3,11 @@ import { Sprout, Loader2, ArrowRight } from 'lucide-react';
 export function SignInPrompt({
   busy,
   onSignIn,
+  firstScreen = false,
 }: {
   busy: boolean;
   onSignIn: () => void;
+  firstScreen?: boolean;
 }) {
   return (
     <section
@@ -20,7 +22,9 @@ export function SignInPrompt({
           Ready to start learning?
         </h2>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          Explore the full outline below. Sign in when you’re ready to enroll.
+          {firstScreen
+            ? 'Continue in your browser. After signing in, come back to your desktop courses.'
+            : 'Explore the full outline below. Sign in when you’re ready to enroll.'}
         </p>
       </div>
       <button

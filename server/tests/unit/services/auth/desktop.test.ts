@@ -25,6 +25,7 @@ describe("desktop browser sign-in", () => {
   it("exchanges the correct proof for a separate desktop session", async () => {
     const result = await exchangeDesktop("code", verifier);
     expect(result.session.token).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.user).toEqual({ id: "user-one" });
     expect(mocks.remove).toHaveBeenCalledOnce();
     expect(mocks.session.mock.calls[0][0].data.userId).toBe("user-one");
   });

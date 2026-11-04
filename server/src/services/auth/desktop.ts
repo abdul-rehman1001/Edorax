@@ -31,6 +31,9 @@ export async function exchangeDesktop(code: string, verifier: string) {
     const consumed = await tx.verificationToken.deleteMany({ where: { token, identifier: row.identifier, expires: { gt: new Date() } } });
     if (consumed.count !== 1) throw new BadRequestError("This sign-in has already been used. Start again from the desktop app.", "DESKTOP_CODE_INVALID");
     const session = await tx.session.create({ data: { userId: user.id, sessionToken: randomBytes(32).toString("hex"), expires: new Date(Date.now() + SESSION_MAX_AGE_MS) } });
-    return { session: { token: session.sessionToken, expiresAt: session.expires.toISOString() } };
+    return {
+      session: { token: session.sessionToken, expiresAt: session.expires.toISOString() },
+      user: { id: user.id },
+    };
   });
 }

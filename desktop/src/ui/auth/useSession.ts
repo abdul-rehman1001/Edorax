@@ -57,6 +57,7 @@ export function useSession() {
     authError,
     setAuthError,
     authRevision,
+    authChecked,
     changeSession,
   };
 }
