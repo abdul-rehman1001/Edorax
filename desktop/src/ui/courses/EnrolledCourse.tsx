@@ -20,7 +20,12 @@ export function EnrolledCourse({
   const [loading, setLoading] = useState(true);
   const [picking, setPicking] = useState(false);
   const [assetBase, setAssetBase] = useState('');
-  const [download, setDownload] = useState<{ available: boolean; downloadedAt: string | null; chapters: number; pending: number } | null>(null);
+  const [download, setDownload] = useState<{
+    available: boolean;
+    downloadedAt: string | null;
+    chapters: number;
+    pending: number;
+  } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState('');
   const generation = useRef(0);
@@ -73,11 +78,15 @@ export function EnrolledCourse({
       const result = await window.buildment.offline.download(slug);
       if (!result.ok) setDownloadMessage(result.message);
       else {
-        setDownloadMessage(`${result.data.chapters} lessons saved for offline reading${result.data.locked ? `; ${result.data.locked} locked lessons need to be unlocked online first` : ''}.`);
+        setDownloadMessage(
+          `${result.data.chapters} lessons saved for offline reading${result.data.locked ? `; ${result.data.locked} locked lessons need to be unlocked online first` : ''}.`,
+        );
         setDownload(await window.buildment.offline.status(slug));
       }
     } catch {
-      setDownloadMessage('Could not save this course. Check your connection and try again.');
+      setDownloadMessage(
+        'Could not save this course. Check your connection and try again.',
+      );
     } finally {
       setDownloading(false);
     }
@@ -120,27 +129,96 @@ export function EnrolledCourse({
   return (
     <CourseNavigationProvider onNavigate={navigate} assetBase={assetBase}>
       <div className="course-overview-surface">
-        {overview?.access === 'active' && <section className="mx-6 mt-5 rounded-xl border border-border bg-card p-4 text-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold">Study offline</p>
-              <p className="mt-1 text-muted-foreground">
-                {download?.downloadedAt
-                  ? `${download.chapters} lessons saved on this device. Last updated ${new Date(download.downloadedAt).toLocaleDateString()}.`
-                  : 'Save unlocked lessons and exercises to read without internet.'}
+        {overview?.access === 'active' && (
+          <section className="mx-6 mt-5 rounded-xl border border-border bg-card p-4 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold">Study offline</p>
+                <p className="mt-1 text-muted-foreground">
+                  {download?.downloadedAt
+                    ? `${download.chapters} lessons saved on this device. Last updated ${new Date(download.downloadedAt).toLocaleDateString()}.`
+                    : 'Save unlocked lessons and exercises to read without internet.'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {Boolean(download?.pending) && (
+                  <button
+                    className="rounded-lg border border-border px-3 py-2"
+                    onClick={async () => {
+                      const result = await window.buildment.offline.sync();
+                      setDownload(await window.buildment.offline.status(slug));
+                      setDownloadMessage(
+                        result.message ??
+                          (result.pending === 0
+                            ? 'Saved changes synced.'
+                            : `${result.pending} changes remaining to sync.`),
+                      );
+                    }}
+                  >
+                    Sync changes
+                  </button>
+                )}
+                {download?.downloadedAt && (
+                  <button
+                    className="rounded-lg border border-border px-3 py-2"
+                    onClick={async () => {
+                      try {
+                        await window.buildment.offline.remove(slug);
+                        setDownload(
+                          await window.buildment.offline.status(slug),
+                        );
+                        setDownloadMessage(
+                          'Download removed from this device.',
+                        );
+                      } catch (error) {
+                        setDownloadMessage(
+                          error instanceof Error
+                            ? error.message
+                            : 'Could not remove download.',
+                        );
+                      }
+                    }}
+                  >
+                    Remove download
+                  </button>
+                )}
+                <button
+                  className="rounded-lg bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50"
+                  disabled={downloading || download?.available === false}
+                  onClick={() => void downloadLessons()}
+                >
+                  {downloading
+                    ? 'Saving lessons…'
+                    : download?.downloadedAt
+                      ? 'Update download'
+                      : 'Download lessons'}
+                </button>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Videos, AI activities, graded answers, quizzes, and chapter
+              completion need internet. Notes and checklists saved offline will
+              sync when you reconnect. Saved lessons are available until your
+              sign-in expires.
+            </p>
+            {Boolean(download?.pending) && (
+              <p role="status" className="mt-2 text-xs">
+                {download!.pending} offline note or checklist changes waiting to
+                sync. They remain encrypted on this device.
               </p>
-            </div>
-            <div className="flex gap-2">
-              {Boolean(download?.pending) && <button className="rounded-lg border border-border px-3 py-2" onClick={async () => { const result = await window.buildment.offline.sync(); setDownload(await window.buildment.offline.status(slug)); setDownloadMessage(result.message ?? 'Saved changes synced.'); }}>Sync changes</button>}
-              {download?.downloadedAt && <button className="rounded-lg border border-border px-3 py-2" onClick={async () => { try { await window.buildment.offline.remove(slug); setDownload(await window.buildment.offline.status(slug)); } catch (error) { setDownloadMessage(error instanceof Error ? error.message : 'Could not remove download.'); } }}>Remove download</button>}
-              <button className="rounded-lg bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50" disabled={downloading || download?.available === false} onClick={() => void downloadLessons()}>{downloading ? 'Saving lessons…' : download?.downloadedAt ? 'Update download' : 'Download lessons'}</button>
-            </div>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">Videos, AI activities, graded answers, quizzes, and chapter completion need internet. Notes and checklists saved offline will sync when you reconnect. Saved lessons are available until your sign-in expires.</p>
-          {Boolean(download?.pending) && <p role="status" className="mt-2 text-xs">{download!.pending} offline note or checklist changes waiting to sync. They remain encrypted on this device.</p>}
-          {download?.available === false && <p role="alert" className="mt-2">Enable your system keyring to protect offline course data.</p>}
-          {downloadMessage && <p role="status" className="mt-2">{downloadMessage}</p>}
-        </section>}
+            )}
+            {download?.available === false && (
+              <p role="alert" className="mt-2">
+                Enable your system keyring to protect offline course data.
+              </p>
+            )}
+            {downloadMessage && (
+              <p role="status" className="mt-2">
+                {downloadMessage}
+              </p>
+            )}
+          </section>
+        )}
         {error && (
           <div
             role="alert"

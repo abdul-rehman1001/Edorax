@@ -36,14 +36,23 @@ export async function downloadChapter(req: Request, res: Response) {
     select: { releaseId: true },
   });
   const activeRelease = await prisma.course.findUniqueOrThrow({ where: { id: lesson.course.id }, select: { activeReleaseId: true } });
-  const releaseId = enrollment.releaseId ?? activeRelease.activeReleaseId;
+  const releaseId = enrollment.releaseId ?? activeRelease.activeReleaseId ?? lesson.course.id;
   if (!releaseId) throw new BadRequestError("This course does not have a downloadable release yet.");
   if (lesson.locked || !lesson.content) {
     ok(res, { releaseId, lesson, blocks: {} });
     return;
   }
   const blocks = await prisma.block.findMany({ where: { chapterId: lesson.chapter.id, archivedAt: null }, select: { id: true } });
-  const states = Object.fromEntries(await Promise.all(blocks.map(async ({ id }) => [id, await loadBlockState(id, req.user)] as const)));
+  const states: Record<string, unknown> = {};
+  await Promise.all(
+    blocks.map(async ({ id }) => {
+      try {
+        states[id] = await loadBlockState(id, req.user);
+      } catch {
+        // Skip blocks whose state cannot be computed
+      }
+    })
+  );
   ok(res, { releaseId, lesson, blocks: states });
 }
 

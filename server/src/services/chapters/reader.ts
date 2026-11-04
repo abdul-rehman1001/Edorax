@@ -76,7 +76,6 @@ export async function loadChapterReader(courseSlug: string, chapterSlug: string,
       upgradeEnrollmentToRelease(tx, enrollment.id, course.activeReleaseId!), { timeout: 60_000 });
     if (upgraded) enrollment.releaseId = course.activeReleaseId;
   }
-  }
 
   const bypassLocking = shouldBypassProgressGating(user);
   const selectedRelease = await releaseForEnrollment(course.id, enrollment, course.familySlug);

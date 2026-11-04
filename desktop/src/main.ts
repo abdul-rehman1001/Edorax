@@ -102,7 +102,8 @@ const apiBase =
   'https://buildment-eca06ffd3e8f.herokuapp.com';
 const previewClient = createPreviewClient(apiBase);
 const offline = new OfflineStore();
-const connectionFailure = (result: { ok: boolean; code?: string }) => !result.ok && result.code === 'CONNECTION_ERROR';
+const connectionFailure = (result: { ok: boolean; code?: string }) =>
+  !result.ok && result.code === 'CONNECTION_ERROR';
 async function courseOverview(slug: string) {
   if (offline.pending().length) {
     const synced = await syncPending();
@@ -110,77 +111,160 @@ async function courseOverview(slug: string) {
       const saved = offline.course(slug);
       if (synced.code === 'CONNECTION_ERROR' && saved)
         return { ok: true as const, data: saved.overview };
-      return { ok: false as const, code: synced.code ?? 'SYNC_REQUIRED', message: `Could not sync your offline changes: ${synced.message}` };
+      return {
+        ok: false as const,
+        code: synced.code ?? 'SYNC_REQUIRED',
+        message: `Could not sync your offline changes: ${synced.message}`,
+      };
     }
   }
   const result = await previewClient.learning.overview(slug);
   const saved = offline.course(slug);
-  return connectionFailure(result) && saved ? { ok: true as const, data: saved.overview } : result;
+  return connectionFailure(result) && saved
+    ? { ok: true as const, data: saved.overview }
+    : result;
 }
 async function blockState(id: string) {
   const result = await previewClient.learning.block(id);
   if (!connectionFailure(result)) return result;
-  const saved = offline.courses().map(course => course.blocks[id]).find(Boolean);
+  const saved = offline
+    .courses()
+    .map((course) => course.blocks[id])
+    .find(Boolean);
   return saved ? { ok: true as const, data: saved } : result;
 }
-let syncTask: Promise<{ pending: number; message: string | null; code: string | null }> | null = null;
+let syncTask: Promise<{
+  pending: number;
+  message: string | null;
+  code: string | null;
+}> | null = null;
 function syncPending() {
   if (syncTask) return syncTask;
   syncTask = (async () => {
     for (const change of offline.pending()) {
-      const result = change.kind === 'log'
-        ? await previewClient.learning.saveLog(change.chapterId, change.answers)
-        : await previewClient.learning.checklist(change.chapterId, change.item, change.checked);
-      if (!result.ok) return { pending: offline.pending().length, message: result.message, code: result.code };
+      const result =
+        change.kind === 'log'
+          ? await previewClient.learning.saveLog(
+              change.chapterId,
+              change.answers,
+            )
+          : await previewClient.learning.checklist(
+              change.chapterId,
+              change.item,
+              change.checked,
+            );
+      if (!result.ok)
+        return {
+          pending: offline.pending().length,
+          message: result.message,
+          code: result.code,
+        };
       await offline.shiftPending();
     }
     return { pending: 0, message: null, code: null };
-  })().finally(() => { syncTask = null; });
+  })().finally(() => {
+    syncTask = null;
+  });
   return syncTask;
 }
 async function downloadCourse(slug: string) {
   if (!/^[a-zA-Z0-9_-]{1,200}$/.test(slug))
-    return { ok: false as const, code: 'INVALID_INPUT', message: 'Invalid course.' };
+    return {
+      ok: false as const,
+      code: 'INVALID_INPUT',
+      message: 'Invalid course.',
+    };
   if (!offline.available())
-    return { ok: false as const, code: 'SECURE_STORAGE_UNAVAILABLE', message: 'Secure system storage is unavailable. Enable your OS keyring to download courses.' };
+    return {
+      ok: false as const,
+      code: 'SECURE_STORAGE_UNAVAILABLE',
+      message:
+        'Secure system storage is unavailable. Enable your OS keyring to download courses.',
+    };
   if (!previewClient.sessionSnapshot())
-    return { ok: false as const, code: 'AUTH_REQUIRED', message: 'Sign in while online before downloading a course.' };
+    return {
+      ok: false as const,
+      code: 'AUTH_REQUIRED',
+      message: 'Sign in while online before downloading a course.',
+    };
   const synced = await syncPending();
   if (synced.pending)
-    return { ok: false as const, code: 'SYNC_REQUIRED', message: `Sync saved changes before updating this course: ${synced.message}` };
+    return {
+      ok: false as const,
+      code: 'SYNC_REQUIRED',
+      message: `Sync saved changes before updating this course: ${synced.message}`,
+    };
   const overview = await previewClient.learning.overview(slug);
   if (!overview.ok) return overview;
   if (overview.data.access !== 'active' || !overview.data.syllabus)
-    return { ok: false as const, code: 'ACCESS_REQUIRED', message: 'Enroll in this course before downloading it.' };
-  const [catalog, detail] = await Promise.all([previewClient.listCourses(), previewClient.courseDetail(slug)]);
-  if (!catalog.ok) return { ok: false as const, code: 'DOWNLOAD_FAILED', message: catalog.message };
+    return {
+      ok: false as const,
+      code: 'ACCESS_REQUIRED',
+      message: 'Enroll in this course before downloading it.',
+    };
+  const [catalog, detail] = await Promise.all([
+    previewClient.listCourses(),
+    previewClient.courseDetail(slug),
+  ]);
+  if (!catalog.ok)
+    return {
+      ok: false as const,
+      code: 'DOWNLOAD_FAILED',
+      message: catalog.message,
+    };
   if (!detail.ok) return detail;
-  const summary = catalog.courses.find(course => course.slug === slug);
+  const summary = catalog.courses.find((course) => course.slug === slug);
   if (!summary || detail.data.access !== 'active')
-    return { ok: false as const, code: 'ACCESS_REQUIRED', message: 'This course is not available for download.' };
+    return {
+      ok: false as const,
+      code: 'ACCESS_REQUIRED',
+      message: 'This course is not available for download.',
+    };
   const lessons: DownloadedCourse['lessons'] = {};
   const blocks: DownloadedCourse['blocks'] = {};
   let releaseId: string | null = null;
   let locked = 0;
-  const chapters = overview.data.syllabus.modules.flatMap(module => module.chapters);
+  const chapters = overview.data.syllabus.modules.flatMap(
+    (module) => module.chapters,
+  );
   for (const chapter of chapters) {
-    const result = await previewClient.learning.downloadChapter(slug, chapter.slug);
+    const result = await previewClient.learning.downloadChapter(
+      slug,
+      chapter.slug,
+    );
     if (!result.ok) return result;
     if (releaseId && releaseId !== result.data.releaseId)
-      return { ok: false as const, code: 'RELEASE_CHANGED', message: 'The course changed during download. Please try again.' };
+      return {
+        ok: false as const,
+        code: 'RELEASE_CHANGED',
+        message: 'The course changed during download. Please try again.',
+      };
     releaseId = result.data.releaseId;
+    lessons[chapter.slug] = result.data.lesson;
     if (result.data.lesson.locked || !result.data.lesson.content) {
       locked++;
       continue;
     }
-    lessons[chapter.slug] = result.data.lesson;
     Object.assign(blocks, result.data.blocks);
   }
-  if (!releaseId || !Object.keys(lessons).length)
-    return { ok: false as const, code: 'NO_LESSONS', message: 'No unlocked lessons are available to download yet.' };
+  const unlocked = Object.keys(lessons).length - locked;
+  if (!releaseId || unlocked === 0)
+    return {
+      ok: false as const,
+      code: 'NO_LESSONS',
+      message: 'No unlocked lessons are available to download yet.',
+    };
   // The package replaces the previous download only after every request succeeds.
-  await offline.setCourse(slug, { releaseId, downloadedAt: new Date().toISOString(), summary, detail: detail.data, overview: overview.data, lessons, blocks });
-  return { ok: true as const, data: { chapters: Object.keys(lessons).length, locked } };
+  await offline.setCourse(slug, {
+    releaseId,
+    downloadedAt: new Date().toISOString(),
+    summary,
+    detail: detail.data,
+    overview: overview.data,
+    lessons,
+    blocks,
+  });
+  return { ok: true as const, data: { chapters: unlocked, locked } };
 }
 const browserAuth = createBrowserAuth(
   process.env.BUILDMENT_WEB_URL || 'https://edorax.com',
@@ -441,7 +525,7 @@ else {
     }
     ipcMain.handle('course:start-learning', (event, slug) => {
       requireRenderer(event);
-      return previewClient.nextLesson(slug).then(result => {
+      return previewClient.nextLesson(slug).then((result) => {
         if (!connectionFailure(result)) return result;
         const href = offline.course(slug)?.overview.syllabus?.continueHref;
         return href ? { ok: true as const, data: { href } } : result;
@@ -458,10 +542,14 @@ else {
     });
     ipcMain.handle('learning:lesson', (event, course, chapter) => {
       requireRenderer(event);
-      return previewClient.learning.lesson(course, chapter).then(result =>
+      return previewClient.learning.lesson(course, chapter).then((result) =>
         connectionFailure(result) && offline.course(course)?.lessons[chapter]
-          ? { ok: true as const, data: offline.course(course)!.lessons[chapter]! }
-          : result);
+          ? {
+              ok: true as const,
+              data: offline.course(course)!.lessons[chapter]!,
+            }
+          : result,
+      );
     });
     ipcMain.handle('learning:update-track', (event, course, kind, slug) => {
       requireRenderer(event);
@@ -501,22 +589,43 @@ else {
     });
     ipcMain.handle('learning:save-log', (event, id, answers) => {
       requireRenderer(event);
-      return previewClient.learning.saveLog(id, answers).then(async result => {
-        if (!connectionFailure(result)) return result;
-        if (typeof id !== 'string' || !answers || typeof answers !== 'object' ||
-            Object.values(answers).some(value => typeof value !== 'string') || !offline.hasChapter(id)) return result;
-        await offline.queue({ kind: 'log', chapterId: id, answers });
-        return { ok: true as const, data: null };
-      });
+      return previewClient.learning
+        .saveLog(id, answers)
+        .then(async (result) => {
+          if (!connectionFailure(result)) return result;
+          if (
+            typeof id !== 'string' ||
+            !answers ||
+            typeof answers !== 'object' ||
+            Object.values(answers).some((value) => typeof value !== 'string') ||
+            !offline.hasChapter(id)
+          )
+            return result;
+          await offline.queue({ kind: 'log', chapterId: id, answers });
+          return { ok: true as const, data: null };
+        });
     });
     ipcMain.handle('learning:checklist', (event, id, item, checked) => {
       requireRenderer(event);
-      return previewClient.learning.checklist(id, item, checked).then(async result => {
-        if (!connectionFailure(result)) return result;
-        if (typeof id !== 'string' || typeof item !== 'string' || typeof checked !== 'boolean' || !offline.hasChapter(id)) return result;
-        await offline.queue({ kind: 'checklist', chapterId: id, item, checked });
-        return { ok: true as const, data: null };
-      });
+      return previewClient.learning
+        .checklist(id, item, checked)
+        .then(async (result) => {
+          if (!connectionFailure(result)) return result;
+          if (
+            typeof id !== 'string' ||
+            typeof item !== 'string' ||
+            typeof checked !== 'boolean' ||
+            !offline.hasChapter(id)
+          )
+            return result;
+          await offline.queue({
+            kind: 'checklist',
+            chapterId: id,
+            item,
+            checked,
+          });
+          return { ok: true as const, data: null };
+        });
     });
     ipcMain.handle('enrollment:create', (event, courseId) => {
       requireRenderer(event);
@@ -524,10 +633,13 @@ else {
     });
     ipcMain.handle('catalog:detail', (event, slug) => {
       requireRenderer(event);
-      return previewClient.courseDetail(slug).then(result =>
-        connectionFailure(result) && offline.course(slug)
-          ? { ok: true as const, data: offline.course(slug)!.detail }
-          : result);
+      return previewClient
+        .courseDetail(slug)
+        .then((result) =>
+          connectionFailure(result) && offline.course(slug)
+            ? { ok: true as const, data: offline.course(slug)!.detail }
+            : result,
+        );
     });
     ipcMain.handle('learner:profile', (event) => {
       requireRenderer(event);
@@ -550,7 +662,10 @@ else {
           const session = previewClient.sessionSnapshot();
           if (session) await offline.setSession(session);
         } catch (error) {
-          console.error('Signed in, but could not enable offline access:', error);
+          console.error(
+            'Signed in, but could not enable offline access:',
+            error,
+          );
         }
       }
       if (result.ok && mainWindow) {
@@ -567,7 +682,13 @@ else {
       requireRenderer(event);
       if (offline.pending().length) {
         const synced = await syncPending();
-        if (synced.pending) return { ok: false as const, code: 'PENDING_CHANGES', message: 'Your offline notes or checklist changes have not synced. Connect to the internet before signing out.' };
+        if (synced.pending)
+          return {
+            ok: false as const,
+            code: 'PENDING_CHANGES',
+            message:
+              'Your offline notes or checklist changes have not synced. Connect to the internet before signing out.',
+          };
       }
       disposeLabs();
       cancelBrowserAuth();
@@ -593,16 +714,32 @@ else {
               : 'Invalid backend configuration.',
         };
       }
-      return previewClient.listCourses().then(result =>
-        !result.ok && result.code === 'CONNECTION_ERROR' && offline.courses().length
-          ? { ok: true as const, courses: offline.courses().map(course => course.summary) }
-          : result);
+      return previewClient.listCourses().then((result) =>
+        !result.ok &&
+        result.code === 'CONNECTION_ERROR' &&
+        offline.courses().length
+          ? {
+              ok: true as const,
+              courses: offline.courses().map((course) => course.summary),
+            }
+          : result,
+      );
     });
     ipcMain.handle('offline:status', (event, slug) => {
       requireRenderer(event);
-      const course = typeof slug === 'string' ? offline.course(slug) : undefined;
-      return { available: offline.available(), downloadedAt: course?.downloadedAt ?? null,
-        chapters: course ? Object.keys(course.lessons).length : 0, pending: offline.pending().length };
+      const course =
+        typeof slug === 'string' ? offline.course(slug) : undefined;
+      const chapters = course
+        ? Object.values(course.lessons).filter(
+            (lesson) => !lesson.locked && Boolean(lesson.content),
+          ).length
+        : 0;
+      return {
+        available: offline.available(),
+        downloadedAt: course?.downloadedAt ?? null,
+        chapters,
+        pending: offline.pending().length,
+      };
     });
     ipcMain.handle('offline:download', (event, slug) => {
       requireRenderer(event);
@@ -610,7 +747,8 @@ else {
     });
     ipcMain.handle('offline:remove', async (event, slug) => {
       requireRenderer(event);
-      if (typeof slug === 'string' && /^[a-zA-Z0-9_-]{1,200}$/.test(slug)) await offline.removeCourse(slug);
+      if (typeof slug === 'string' && /^[a-zA-Z0-9_-]{1,200}$/.test(slug))
+        await offline.removeCourse(slug);
     });
     ipcMain.handle('offline:sync', (event) => {
       requireRenderer(event);

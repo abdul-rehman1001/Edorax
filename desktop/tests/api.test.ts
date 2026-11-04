@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { backendBase, fetchCatalog } from '../src/api';
 import { filterCourses } from '../src/domain/catalog';
 import { courses, courseDetail } from './fixtures';
@@ -7,16 +10,30 @@ import { createPreviewClient } from '../src/api';
 import { createBrowserAuth } from '../src/auth/browser-auth';
 import { createHash } from 'node:crypto';
 import { createLearningClient } from '../src/api/learning';
+import {
+  OfflineStore,
+  type OfflineStorageDriver,
+  type DownloadedCourse,
+} from '../src/offline/store';
+import type { Lesson } from '../src/domain/learning';
 
 test('offline download validates the chapter package and parses unlocked and locked lessons', async () => {
   const paths: string[] = [];
   const client = createLearningClient(async (path) => {
     paths.push(path);
-    return { ok: true, data: {
-      releaseId: 'release-2',
-      lesson: { chapter: { id: 'chapter-1', slug: 'intro' }, modules: [], content: paths.length === 1 ? { source: '# Hello' } : null, locked: paths.length !== 1 },
-      blocks: {},
-    } };
+    return {
+      ok: true,
+      data: {
+        releaseId: 'release-2',
+        lesson: {
+          chapter: { id: 'chapter-1', slug: 'intro' },
+          modules: [],
+          content: paths.length === 1 ? { source: '# Hello' } : null,
+          locked: paths.length !== 1,
+        },
+        blocks: {},
+      },
+    };
   });
   const unlocked = await client.downloadChapter('course', 'intro');
   assert.equal(unlocked.ok && unlocked.data.lesson.content?.source, '# Hello');
@@ -542,4 +559,202 @@ test('home catalog includes the private session after login and removes it after
   const signedOut = await client.listCourses();
   assert.equal(signedOut.ok && signedOut.courses[0].enrollmentLifecycle, null);
   assert.deepEqual(seen, [null, 'Bearer private-session', null]);
+});
+
+test('session restoration and snapshot preserves token and userId until expiration', async () => {
+  const client = createPreviewClient('http://localhost:4000', async (url) => {
+    if (String(url).endsWith('/auth/me')) {
+      return Response.error();
+    }
+    return Response.json({ success: true, data: {} });
+  });
+
+  client.restoreSession({
+    token: 'tok-1',
+    userId: 'user-1',
+    expiresAt: new Date(Date.now() - 10_000).toISOString(),
+  });
+  assert.equal(client.sessionSnapshot(), null);
+
+  const future = new Date(Date.now() + 60_000).toISOString();
+  client.restoreSession({
+    token: 'tok-2',
+    userId: 'user-2',
+    expiresAt: future,
+  });
+  assert.deepEqual(client.sessionSnapshot(), {
+    token: 'tok-2',
+    userId: 'user-2',
+    expiresAt: future,
+  });
+
+  const status = await client.authStatus();
+  assert.equal(status.ok, true);
+  assert.equal(status.data.signedIn, true);
+
+  await client.signOut();
+  assert.equal(client.sessionSnapshot(), null);
+});
+
+test('offline store encrypts session, isolates users, deduplicates notes/checklists, and manages downloads', async () => {
+  const tempDir = await mkdtemp(path.join(tmpdir(), 'edorax-store-test-'));
+  try {
+    const driver: OfflineStorageDriver = {
+      available: () => true,
+      dataPath: () => path.join(tempDir, 'learner-offline.dat'),
+      encrypt: async (text: string) => Buffer.from(text, 'utf8'),
+      decrypt: async (buf: Buffer) => ({
+        result: buf.toString('utf8'),
+        shouldReEncrypt: false,
+      }),
+    };
+
+    const store = new OfflineStore(driver);
+    await store.open();
+    assert.equal(store.available(), true);
+    assert.equal(store.session(), null);
+
+    const future = new Date(Date.now() + 60_000).toISOString();
+    await store.setSession({
+      token: 'tok-a',
+      userId: 'user-a',
+      expiresAt: future,
+    });
+    assert.equal(store.session()?.userId, 'user-a');
+
+    const mockLesson: Lesson = {
+      chapter: {
+        id: 'ch-1',
+        slug: 'lesson-1',
+        title: 'Lesson 1',
+        lessonLabel: '01.01',
+        estimatedMinutes: 10,
+        readerMode: 'DEFAULT',
+        isMilestone: false,
+        blockCount: 1,
+      },
+      course: {
+        id: 'c-1',
+        slug: 'course-1',
+        title: 'Course 1',
+        projectGoal: null,
+      },
+      document: { type: 'root', children: [] },
+      content: {
+        source: '# Lesson 1',
+        learningLogAnswers: {},
+        checklistState: { 'item-1': false },
+        chapterComplete: false,
+        canMarkComplete: false,
+        checkpointsCompleted: 0,
+        checkpointsTotal: 1,
+        nextLocked: false,
+        reflectionPending: false,
+        recap: { checks: '', open: '', next: '' },
+        streakMilestone: null,
+        headingNotes: {},
+        predictGate: false,
+        predictRevealed: true,
+        helpThread: null,
+      },
+      locked: false,
+      prev: null,
+      previous: null,
+      next: null,
+      track: null,
+      modules: [],
+    };
+    const mockCourse: DownloadedCourse = {
+      releaseId: 'rel-1',
+      downloadedAt: new Date().toISOString(),
+      summary: courses[0]!,
+      detail: { ...courseDetail, signedIn: true },
+      overview: {
+        access: 'active',
+        enrollment: null,
+        syllabus: null,
+        course: null,
+      } as any,
+      lessons: { 'lesson-1': mockLesson },
+      blocks: {},
+    };
+    await store.setCourse('course-1', mockCourse);
+    assert.equal(store.course('course-1')?.releaseId, 'rel-1');
+    assert.equal(store.hasChapter('ch-1'), true);
+
+    await store.queue({
+      kind: 'log',
+      chapterId: 'ch-1',
+      answers: { note1: 'first answer' },
+    });
+    assert.equal(
+      store.course('course-1')?.lessons['lesson-1']?.content?.learningLogAnswers
+        ?.note1,
+      'first answer',
+    );
+    assert.equal(store.pending().length, 1);
+
+    await store.queue({
+      kind: 'log',
+      chapterId: 'ch-1',
+      answers: { note1: 'updated answer', note2: 'second answer' },
+    });
+    assert.equal(store.pending().length, 1);
+    assert.equal(
+      store.course('course-1')?.lessons['lesson-1']?.content?.learningLogAnswers
+        ?.note1,
+      'updated answer',
+    );
+
+    await store.queue({
+      kind: 'checklist',
+      chapterId: 'ch-1',
+      item: 'item-1',
+      checked: true,
+    });
+    assert.equal(
+      store.course('course-1')?.lessons['lesson-1']?.content?.checklistState?.[
+        'item-1'
+      ],
+      true,
+    );
+    assert.equal(store.pending().length, 2);
+
+    await store.queue({
+      kind: 'checklist',
+      chapterId: 'ch-1',
+      item: 'item-1',
+      checked: false,
+    });
+    assert.equal(store.pending().length, 2);
+    assert.equal(
+      store.course('course-1')?.lessons['lesson-1']?.content?.checklistState?.[
+        'item-1'
+      ],
+      false,
+    );
+
+    await assert.rejects(
+      store.removeCourse('course-1'),
+      /Sync your saved notes/,
+    );
+
+    await store.shiftPending();
+    await store.shiftPending();
+    assert.equal(store.pending().length, 0);
+
+    await store.removeCourse('course-1');
+    assert.equal(store.course('course-1'), undefined);
+
+    await store.setCourse('course-1', mockCourse);
+    await store.setSession({
+      token: 'tok-b',
+      userId: 'user-b',
+      expiresAt: future,
+    });
+    assert.equal(store.course('course-1'), undefined);
+    assert.equal(store.courses().length, 0);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
