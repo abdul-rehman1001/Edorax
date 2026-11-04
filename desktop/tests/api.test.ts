@@ -699,7 +699,7 @@ test('offline store encrypts session, isolates users, deduplicates notes/checkli
       chapterId: 'ch-1',
       answers: { note1: 'updated answer', note2: 'second answer' },
     });
-    assert.equal(store.pending().length, 1);
+    assert.equal(store.pending().length, 2);
     assert.equal(
       store.course('course-1')?.lessons['lesson-1']?.content?.learningLogAnswers
         ?.note1,
@@ -718,7 +718,7 @@ test('offline store encrypts session, isolates users, deduplicates notes/checkli
       ],
       true,
     );
-    assert.equal(store.pending().length, 2);
+    assert.equal(store.pending().length, 3);
 
     await store.queue({
       kind: 'checklist',
@@ -726,7 +726,7 @@ test('offline store encrypts session, isolates users, deduplicates notes/checkli
       item: 'item-1',
       checked: false,
     });
-    assert.equal(store.pending().length, 2);
+    assert.equal(store.pending().length, 4);
     assert.equal(
       store.course('course-1')?.lessons['lesson-1']?.content?.checklistState?.[
         'item-1'
@@ -738,7 +738,18 @@ test('offline store encrypts session, isolates users, deduplicates notes/checkli
       store.removeCourse('course-1'),
       /Sync your saved notes/,
     );
+    await assert.rejects(
+      store.setCourse('course-1', mockCourse),
+      /Sync your offline changes/,
+    );
 
+    await store.shiftPending();
+    assert.equal(store.pending().length, 3);
+    assert.deepEqual(store.pending()[0], {
+      kind: 'log', chapterId: 'ch-1',
+      answers: { note1: 'updated answer', note2: 'second answer' },
+    });
+    await store.shiftPending();
     await store.shiftPending();
     await store.shiftPending();
     assert.equal(store.pending().length, 0);

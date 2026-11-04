@@ -161,7 +161,8 @@ function syncPending() {
         };
       await offline.shiftPending();
     }
-    return { pending: 0, message: null, code: null };
+    const pending = offline.pending().length;
+    return { pending, message: pending ? 'New changes are still waiting to sync.' : null, code: null };
   })().finally(() => {
     syncTask = null;
   });

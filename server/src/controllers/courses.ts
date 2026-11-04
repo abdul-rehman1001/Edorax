@@ -43,16 +43,11 @@ export async function downloadChapter(req: Request, res: Response) {
     return;
   }
   const blocks = await prisma.block.findMany({ where: { chapterId: lesson.chapter.id, archivedAt: null }, select: { id: true } });
-  const states: Record<string, unknown> = {};
-  await Promise.all(
-    blocks.map(async ({ id }) => {
-      try {
-        states[id] = await loadBlockState(id, req.user);
-      } catch {
-        // Skip blocks whose state cannot be computed
-      }
-    })
-  );
+  // A partial package would make exercises disappear offline. Fail the
+  // download so the desktop keeps its previous complete package instead.
+  const states = Object.fromEntries(await Promise.all(
+    blocks.map(async ({ id }) => [id, await loadBlockState(id, req.user)] as const)
+  ));
   ok(res, { releaseId, lesson, blocks: states });
 }
 

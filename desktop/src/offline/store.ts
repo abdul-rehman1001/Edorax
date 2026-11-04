@@ -149,6 +149,13 @@ export class OfflineStore {
   async setCourse(slug: string, course: DownloadedCourse) {
     if (!this.session())
       throw new Error('Sign in and enable secure storage to download courses.');
+    const previousIds = new Set(
+      Object.values(this.data.courses[slug]?.lessons ?? {}).map(
+        (lesson) => lesson.chapter.id,
+      ),
+    );
+    if (this.data.pending.some((change) => previousIds.has(change.chapterId)))
+      throw new Error('Sync your offline changes before replacing this download.');
     this.data.courses[slug] = course;
     await this.save();
   }
@@ -182,28 +189,9 @@ export class OfflineStore {
   async queue(change: PendingChange) {
     if (!this.hasChapter(change.chapterId))
       throw new Error('Download this lesson before saving offline.');
-    if (change.kind === 'log') {
-      const existing = this.data.pending.find(
-        (p) => p.kind === 'log' && p.chapterId === change.chapterId,
-      );
-      if (existing && existing.kind === 'log') {
-        existing.answers = { ...existing.answers, ...change.answers };
-      } else {
-        this.data.pending.push(change);
-      }
-    } else {
-      const existing = this.data.pending.find(
-        (p) =>
-          p.kind === 'checklist' &&
-          p.chapterId === change.chapterId &&
-          p.item === change.item,
-      );
-      if (existing && existing.kind === 'checklist') {
-        existing.checked = change.checked;
-      } else {
-        this.data.pending.push(change);
-      }
-    }
+    // Keep every mutation in order. Coalescing an in-flight item can let the
+    // sync worker remove a newer value that the server has never received.
+    this.data.pending.push(change);
     for (const course of this.courses()) {
       const lesson = Object.values(course.lessons).find(
         (value) => value.chapter.id === change.chapterId,
