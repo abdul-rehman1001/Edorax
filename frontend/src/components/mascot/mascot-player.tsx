@@ -268,10 +268,10 @@ export function MascotPlayer() {
   }, [held]);
 
   // Speak the line once while its bubble is up; closing the bubble or turning the voice off stops it.
-  // Plays recorded audio clips or synthesizes speech via Web Speech API, unblocking on user gestures if autoplay was restricted.
+  // Plays Dot's recorded clip only; a missing clip never uses browser speech synthesis.
   useEffect(() => {
     if (!voiceOn || !shown) return;
-    const cleanup = playDotVoice(shown.reaction.message, shown.reaction.voice, {
+    const cleanup = playDotVoice(shown.reaction.voice, {
       onStart: () => setSpeaking(true),
       onEnd: () => setSpeaking(false),
     });

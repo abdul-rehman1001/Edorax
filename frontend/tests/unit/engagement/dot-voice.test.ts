@@ -70,14 +70,14 @@ describe("dot-voice", () => {
     expect(isDotVoiceEnabled()).toBe(false);
   });
 
-  it("speaks via window.speechSynthesis when no pre-recorded audio URL is given", () => {
+  it("stays silent when there is no recorded clip", () => {
     const onStart = vi.fn();
     const onEnd = vi.fn();
 
-    playDotVoice("Keep up the great work!", undefined, { onStart, onEnd });
+    playDotVoice(undefined, { onStart, onEnd });
 
-    expect(mockSpeechSynthesis.speak).toHaveBeenCalledOnce();
-    expect(onStart).toHaveBeenCalledOnce();
+    expect(mockSpeechSynthesis.speak).not.toHaveBeenCalled();
+    expect(onStart).not.toHaveBeenCalled();
     expect(onEnd).toHaveBeenCalledOnce();
   });
 
@@ -106,14 +106,14 @@ describe("dot-voice", () => {
     const onStart = vi.fn();
     const onEnd = vi.fn();
 
-    playDotVoice("Lesson done!", "/brand/dot/voice/lesson-done.mp3", { onStart, onEnd });
+    playDotVoice("/brand/dot/voice/lesson-done.mp3", { onStart, onEnd });
 
     expect(playMock).toHaveBeenCalledOnce();
     expect(onStart).toHaveBeenCalledOnce();
     expect(onEnd).toHaveBeenCalledOnce();
   });
 
-  it("falls back to speech synthesis when audio fails to load", () => {
+  it("stays silent when a recorded clip fails to load", () => {
     const addEventListenerMock = vi.fn((event: string, handler: () => void) => {
       if (event === "error") handler();
     });
@@ -133,9 +133,9 @@ describe("dot-voice", () => {
       }
     );
 
-    playDotVoice("Seven days! Wow!", "/brand/dot/voice/streak-7.mp3");
+    playDotVoice("/brand/dot/voice/streak-7.mp3");
 
-    expect(mockSpeechSynthesis.speak).toHaveBeenCalledOnce();
+    expect(mockSpeechSynthesis.speak).not.toHaveBeenCalled();
   });
 
   it("cancels active speech and cleans up on return callback", () => {
@@ -155,7 +155,7 @@ describe("dot-voice", () => {
       }
     );
 
-    const cleanup = playDotVoice("You passed!", "/brand/dot/voice/you-passed.mp3");
+    const cleanup = playDotVoice("/brand/dot/voice/you-passed.mp3");
     cleanup();
 
     expect(pauseMock).toHaveBeenCalledOnce();
