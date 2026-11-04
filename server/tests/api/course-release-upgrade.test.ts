@@ -304,4 +304,27 @@ describe("course release auto-upgrade and alumni notification", () => {
     expect(await prisma.response.count({ where: { blockId: matchingBlock.id, attempt: 3 } })).toBe(1);
     expect((await prisma.enrollment.findUniqueOrThrow({ where: { id: fx.enrollment.id } })).chaptersCompleted).toBeGreaterThan(0);
   });
+
+  it("keeps the current release when a completed chapter is removed", async () => {
+    const current = await prisma.enrollment.findUniqueOrThrow({ where: { id: fx.enrollment.id } });
+    const release = await prisma.courseRelease.findUniqueOrThrow({ where: { id: current.releaseId! } });
+    const content = structuredClone(release.content as unknown as ReleaseContent);
+    const completed = await prisma.chapterProgress.findMany({ where: {
+      enrollmentId: fx.enrollment.id, status: "COMPLETED",
+    } });
+    const completedIds = new Set(completed.map((progress) => progress.chapterId));
+    content.variants.default = content.variants.default.map((module) => ({
+      ...module, chapters: module.chapters.filter((chapter) => !completedIds.has(chapter.id)),
+    }));
+    const number = await prisma.courseRelease.aggregate({ where: { courseId: fx.course.id }, _max: { number: true } });
+    const target = await prisma.courseRelease.create({ data: {
+      courseId: fx.course.id, number: (number._max.number ?? 0) + 1,
+      content: content as unknown as object,
+    } });
+    const upgraded = await prisma.$transaction((tx) => upgradeEnrollmentToRelease(tx, fx.enrollment.id, target.id));
+    expect(upgraded).toBe(false);
+    const after = await prisma.enrollment.findUniqueOrThrow({ where: { id: fx.enrollment.id } });
+    expect(after.releaseId).toBe(current.releaseId);
+    expect(after.chaptersCompleted).toBe(current.chaptersCompleted);
+  });
 });

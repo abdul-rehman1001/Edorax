@@ -36,10 +36,11 @@ async function main() {
     if (!releaseId) continue;
     console.log(`${enrollment.id} ${enrollment.course.slug}: ${enrollment.releaseId ?? "unpinned"} -> ${releaseId}`);
     if (apply) {
-      await prisma.$transaction(
+      const upgraded = await prisma.$transaction(
         (tx) => upgradeEnrollmentToRelease(tx, enrollment.id, releaseId, { repair: true }),
         { timeout: 60_000 },
       );
+      if (!upgraded) console.log(`Skipped ${enrollment.id}: completed chapters have no target match.`);
     }
   }
 }

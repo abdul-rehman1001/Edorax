@@ -122,7 +122,7 @@ export async function upgradeEnrollmentToRelease(
   });
 
   if (enrollment.releaseId === targetReleaseId && !options?.repair) {
-    return;
+    return true;
   }
 
   const targetRelease = await tx.courseRelease.findUniqueOrThrow({
@@ -142,13 +142,20 @@ export async function upgradeEnrollmentToRelease(
   const targetBySlug = new Map(targetChapters.map((c) => [cleanChapterSlug(c.slug), c]));
   const targetByKey = new Map(targetChapters.filter((c) => c.key).map((c) => [c.key!, c]));
 
+  const counterpart = (chapter: { contentKey: string | null; slug: string }) =>
+    (chapter.contentKey ? targetByKey.get(chapter.contentKey) : null) ?? targetBySlug.get(cleanChapterSlug(chapter.slug));
+
+  // A removed/renamed completed lesson cannot be represented in the target
+  // syllabus. Leave the learner on the working release instead of showing 0%.
+  if (enrollment.chapterProgress.some((progress) =>
+    progress.status === "COMPLETED" && !targetById.has(progress.chapterId) && !counterpart(progress.chapter)
+  )) return false;
+
   // 1. Forward-migrate ChapterProgress rows
   for (const cp of enrollment.chapterProgress) {
     if (targetById.has(cp.chapterId)) continue;
 
-    const oldKey = cp.chapter.contentKey;
-    const oldSlug = cleanChapterSlug(cp.chapter.slug);
-    const targetChapter = (oldKey ? targetByKey.get(oldKey) : null) ?? targetBySlug.get(oldSlug);
+    const targetChapter = counterpart(cp.chapter);
 
     if (!targetChapter) continue;
 
@@ -220,8 +227,7 @@ export async function upgradeEnrollmentToRelease(
     if (targetById.has(resp.block.chapterId)) continue;
 
     const oldChapter = resp.block.chapter;
-    const oldSlug = cleanChapterSlug(oldChapter.slug);
-    const targetChapterMeta = (oldChapter.contentKey ? targetByKey.get(oldChapter.contentKey) : null) ?? targetBySlug.get(oldSlug);
+    const targetChapterMeta = counterpart(oldChapter);
 
     if (!targetChapterMeta) continue;
 
@@ -270,4 +276,5 @@ export async function upgradeEnrollmentToRelease(
   });
 
   await recomputeEnrollmentRollup(tx, enrollmentId, { preserveActivity: true });
+  return true;
 }

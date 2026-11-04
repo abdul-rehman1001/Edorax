@@ -72,10 +72,9 @@ export async function loadChapterReader(courseSlug: string, chapterSlug: string,
   const inCurrentRelease = !currentRelease || currentRelease.modules.some(m => m.chapters.some(c => c.slug === chapterSlug));
 
   if (!inCurrentRelease && course.activeReleaseId && enrollment.releaseId !== course.activeReleaseId && enrollment.status !== "COMPLETED") {
-    await prisma.$transaction(async (tx) => {
-      await upgradeEnrollmentToRelease(tx, enrollment.id, course.activeReleaseId!);
-    }, { timeout: 60_000 });
-    enrollment.releaseId = course.activeReleaseId;
+    const upgraded = await prisma.$transaction((tx) =>
+      upgradeEnrollmentToRelease(tx, enrollment.id, course.activeReleaseId!), { timeout: 60_000 });
+    if (upgraded) enrollment.releaseId = course.activeReleaseId;
   }
 
   const bypassLocking = shouldBypassProgressGating(user);

@@ -68,10 +68,9 @@ export async function getCourseOverview(courseSlug: string, user: SessionUser): 
       curriculumUpgradeAvailable = true;
     } else {
       // Automatically shift active/in-progress learners to the latest active release while preserving progress & answers
-      await prisma.$transaction(async (tx) => {
-        await upgradeEnrollmentToRelease(tx, enrollment.id, activeReleaseId);
-      }, { timeout: 60_000 });
-      enrollment.releaseId = activeReleaseId;
+      const upgraded = await prisma.$transaction((tx) =>
+        upgradeEnrollmentToRelease(tx, enrollment.id, activeReleaseId), { timeout: 60_000 });
+      if (upgraded) enrollment.releaseId = activeReleaseId;
       const refreshed = await prisma.enrollment.findUnique({
         where: { id: enrollment.id },
         select: { percentComplete: true, chaptersCompleted: true, pendingReviews: true },
@@ -133,9 +132,9 @@ export async function upgradeEnrollmentCurriculum(courseSlug: string, user: Sess
   });
   if (!enrollment) throw new NotFoundError("Enrollment not found");
 
-  await prisma.$transaction(async (tx) => {
-    await upgradeEnrollmentToRelease(tx, enrollment.id, course.activeReleaseId!);
-  }, { timeout: 60_000 });
+  const upgraded = await prisma.$transaction((tx) =>
+    upgradeEnrollmentToRelease(tx, enrollment.id, course.activeReleaseId!), { timeout: 60_000 });
+  if (!upgraded) throw new BadRequestError("Completed chapters have no match in the latest curriculum.");
 
   return { success: true, releaseId: course.activeReleaseId };
 }
