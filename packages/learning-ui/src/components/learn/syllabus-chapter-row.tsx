@@ -140,7 +140,7 @@ export function SyllabusChapterRow({
     >
       <ChapterStatusIcon status={chapter.status} locked={chapter.locked} />
       <span className="min-w-0 flex-1">
-        <span className="block line-clamp-2 leading-5">{chapter.title}</span>
+        <span className="block break-words leading-5">{chapter.title}</span>
         <span className="mt-1 block">
           <SidebarChapterMeta chapter={chapter} />
         </span>

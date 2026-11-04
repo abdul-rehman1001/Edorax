@@ -61,6 +61,22 @@ function CourseReaderBody({
   const [busy, setBusy] = useState(false);
   const [quiz, setQuiz] = useState<QuizChapterState | null>(null);
   const [sidebarClosed, setSidebarClosed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem('curriculum-sidebar-width'));
+      return saved >= 240 && saved <= 560 ? Math.max(252, saved) : 288;
+    } catch {
+      return 288;
+    }
+  });
+  const resizeSidebar = (width: number) => {
+    setSidebarWidth(width);
+    try {
+      localStorage.setItem('curriculum-sidebar-width', String(width));
+    } catch {
+      /* local preferences are optional */
+    }
+  };
   const [tocClosed, setTocClosed] = useState(false);
   const [smallWindow, setSmallWindow] = useState(() => window.innerWidth < 768);
   const [idePaneWidth, setIdePaneWidth] = useState(loadPaneWidth);
@@ -284,6 +300,8 @@ function CourseReaderBody({
                   currentChapterSlug={lesson.chapter.slug}
                   collapsed={sidebarClosed}
                   mobileSheet={smallWindow}
+                  width={sidebarWidth}
+                  onWidthChange={resizeSidebar}
                   onToggle={() => setSidebarClosed(true)}
                 />
               </div>
