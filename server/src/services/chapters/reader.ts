@@ -10,13 +10,13 @@ import { requireBlockSubmissionAccess } from "../enrollment/api-learn-access.js"
 import { loadChapterThread } from "../help/threads.js";
 import { serializeHelpThread } from "../help/serialize.js";
 import { chapterChecksLine, chapterNextLine, chapterOpenLine, latestChapterResponses } from "../progress/chapter-recap.js";
-import { ensureChapterStarted, recomputeEnrollmentRollup } from "../progress/compute.js";
+import { ensureChapterStarted } from "../progress/compute.js";
 import { syllabusForEnrollment } from "../progress/enrollment-syllabus.js";
 import { loadCourseGate } from "../progress/gate.js";
 import { loadLearnerHabit } from "../progress/learner-habit.js";
 import { milestoneReflectionBlocked } from "../progress/reflection.js";
 import { isCompletableBlock, previousChapterId } from "../progress/rules.js";
-import { releaseForEnrollment, releaseModulesWithBlocks, variantForRelease } from "../courses/releases.js";
+import { releaseForEnrollment, releaseModulesWithBlocks, upgradeEnrollmentToRelease, variantForRelease } from "../courses/releases.js";
 import { resolveCourseFamily } from "../../shared/lib/course-tracks.js";
 import { findChapterIndex } from "./chapter-slug.js";
 
@@ -72,12 +72,10 @@ export async function loadChapterReader(courseSlug: string, chapterSlug: string,
   const inCurrentRelease = !currentRelease || currentRelease.modules.some(m => m.chapters.some(c => c.slug === chapterSlug));
 
   if (!forDownload && !inCurrentRelease && course.activeReleaseId && enrollment.releaseId !== course.activeReleaseId && enrollment.status !== "COMPLETED") {
-    await prisma.enrollment.update({
-      where: { id: enrollment.id },
-      data: { releaseId: course.activeReleaseId },
-    });
-    enrollment.releaseId = course.activeReleaseId;
-    await recomputeEnrollmentRollup(prisma, enrollment.id, { preserveActivity: true });
+    const upgraded = await prisma.$transaction((tx) =>
+      upgradeEnrollmentToRelease(tx, enrollment.id, course.activeReleaseId!), { timeout: 60_000 });
+    if (upgraded) enrollment.releaseId = course.activeReleaseId;
+  }
   }
 
   const bypassLocking = shouldBypassProgressGating(user);
