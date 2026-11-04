@@ -13,7 +13,7 @@ export function ChapterSidebar(props: ChapterSidebarProps) {
   useEffect(() => {
     try {
       const saved = Number(localStorage.getItem("curriculum-sidebar-width"));
-      if (saved >= 240 && saved <= 560) setWidth(saved);
+      if (saved >= 240 && saved <= 560) setWidth(Math.max(252, saved));
     } catch { /* Keep the default width if storage is unavailable. */ }
   }, []);
   const resize = (value: number) => {

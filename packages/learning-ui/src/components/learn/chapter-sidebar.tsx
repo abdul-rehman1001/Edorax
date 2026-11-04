@@ -235,11 +235,11 @@ export function ChapterSidebar({
           tabIndex={0}
           aria-label="Resize curriculum sidebar"
           aria-orientation="vertical"
-          aria-valuemin={240}
+          aria-valuemin={252}
           aria-valuemax={560}
           aria-valuenow={width}
           title="Drag to resize curriculum (double-click to reset)"
-          className="absolute inset-y-0 right-0 w-2 cursor-col-resize bg-transparent hover:bg-primary/20 focus-visible:bg-primary/20"
+          className="absolute inset-y-0 -right-1.5 z-10 w-2 cursor-col-resize bg-transparent focus-visible:outline focus-visible:outline-primary"
           onPointerDown={(event) => {
             event.preventDefault();
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -249,7 +249,7 @@ export function ChapterSidebar({
             const left = event.currentTarget.parentElement?.getBoundingClientRect().left ?? 0;
             onWidthChange(
               Math.max(
-                240,
+                252,
                 Math.min(560, window.innerWidth - 320, Math.round(event.clientX - left)),
               ),
             );
@@ -259,7 +259,7 @@ export function ChapterSidebar({
             event.preventDefault();
             onWidthChange(
               Math.max(
-                240,
+                252,
                 Math.min(
                   560,
                   window.innerWidth - 320,
@@ -269,9 +269,7 @@ export function ChapterSidebar({
             );
           }}
           onDoubleClick={() => onWidthChange(288)}
-        >
-          <span className="pointer-events-none absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-border" />
-        </div>
+        />
       )}
     </aside>
   );

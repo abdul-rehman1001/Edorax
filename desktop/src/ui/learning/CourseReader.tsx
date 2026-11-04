@@ -64,7 +64,7 @@ function CourseReaderBody({
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     try {
       const saved = Number(localStorage.getItem('curriculum-sidebar-width'));
-      return saved >= 240 && saved <= 560 ? saved : 288;
+      return saved >= 240 && saved <= 560 ? Math.max(252, saved) : 288;
     } catch {
       return 288;
     }
