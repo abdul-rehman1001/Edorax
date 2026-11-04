@@ -6,13 +6,14 @@ import { CourseCatalog } from './courses/CourseCatalog';
 import { Sidebar } from './layout/Sidebar';
 import { WorkspaceHeader } from './layout/WorkspaceHeader';
 import { useSession } from './auth/useSession';
+import { SignInPrompt } from './auth/SignInPrompt';
 
 export function App() {
   const [selected, setSelected] = useState<Course | null>(null);
   const [chapter, setChapter] = useState<string | undefined>();
   const [reading, setReading] = useState(false);
   const session = useSession();
-  const { signedIn, setSignedIn, authBusy, authRevision, changeSession } =
+  const { signedIn, setSignedIn, authBusy, authRevision, authChecked, changeSession } =
     session;
   useEffect(() => {
     if (!signedIn) setReading(false);
@@ -74,7 +75,7 @@ export function App() {
     }
   }
   useEffect(() => {
-    if (!selected) void load();
+    if (signedIn && !selected) void load();
     return () => {
       catalogGeneration.current++;
     };
@@ -95,6 +96,18 @@ export function App() {
       return !value;
     });
   }
+
+  if (!authChecked) return <div className="flex h-screen items-center justify-center text-sm text-muted-foreground" role="status">Opening Edorax…</div>;
+  if (!signedIn) return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-5 text-foreground">
+      <div className="w-full max-w-xl">
+        <p className="font-display text-4xl font-semibold">Welcome to Edorax</p>
+        <p className="mt-3 text-sm text-muted-foreground">Sign in to access your courses. Your browser will open securely, then bring you back here.</p>
+        <SignInPrompt busy={authBusy} onSignIn={() => void changeSession(true)} firstScreen />
+        {session.authError && <p role="alert" className="mt-4 text-sm text-destructive">{session.authError}</p>}
+      </div>
+    </main>
+  );
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">

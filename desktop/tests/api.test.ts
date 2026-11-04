@@ -6,6 +6,28 @@ import { courses, courseDetail } from './fixtures';
 import { createPreviewClient } from '../src/api';
 import { createBrowserAuth } from '../src/auth/browser-auth';
 import { createHash } from 'node:crypto';
+import { createLearningClient } from '../src/api/learning';
+
+test('offline download validates the chapter package and parses unlocked and locked lessons', async () => {
+  const paths: string[] = [];
+  const client = createLearningClient(async (path) => {
+    paths.push(path);
+    return { ok: true, data: {
+      releaseId: 'release-2',
+      lesson: { chapter: { id: 'chapter-1', slug: 'intro' }, modules: [], content: paths.length === 1 ? { source: '# Hello' } : null, locked: paths.length !== 1 },
+      blocks: {},
+    } };
+  });
+  const unlocked = await client.downloadChapter('course', 'intro');
+  assert.equal(unlocked.ok && unlocked.data.lesson.content?.source, '# Hello');
+  assert.equal(unlocked.ok && unlocked.data.lesson.document.type, 'root');
+  const locked = await client.downloadChapter('course', 'next');
+  assert.equal(locked.ok && locked.data.lesson.locked, true);
+  assert.deepEqual(paths, [
+    '/api/v1/courses/course/chapters/intro/download',
+    '/api/v1/courses/course/chapters/next/download',
+  ]);
+});
 
 test('catalog uses the existing envelope and fixed endpoint', async () => {
   const result = await fetchCatalog(

@@ -11,6 +11,7 @@ const router = Router();
 router.get("/:courseSlug/continue", optionalAuth, validateParams(courseSlugParams), courses.continueChapter);
 router.get("/:courseSlug/overview", authenticate, requireVerified, validateParams(courseSlugParams), courses.overview);
 router.get("/:courseSlug/chapters/:chapterSlug", authenticate, requireVerified, validateParams(chapterPathParams), courses.chapter);
+router.get("/:courseSlug/chapters/:chapterSlug/download", authenticate, requireVerified, validateParams(chapterPathParams), courses.downloadChapter);
 router.put(
   "/:courseSlug/track/variant",
   authenticate,

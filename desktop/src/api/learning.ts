@@ -23,6 +23,34 @@ const invalid = {
 };
 export function createLearningClient(request: Request) {
   return {
+    async downloadChapter(course: string, chapter: string): Promise<Result<{
+      releaseId: string;
+      lesson: Lesson;
+      blocks: Record<string, BlockState>;
+    }>> {
+      if (!valid(course) || !valid(chapter)) return invalid;
+      const result = await request(
+        '/api/v1/courses/' + segment(course) + '/chapters/' + segment(chapter) + '/download',
+      );
+      if (!result.ok) return result;
+      const data = result.data;
+      if (!isRecord(data) || typeof data.releaseId !== 'string' ||
+          !isRecord(data.lesson) || !isRecord(data.lesson.chapter) ||
+          (data.lesson.content !== null &&
+            (!isRecord(data.lesson.content) || typeof data.lesson.content.source !== 'string')) ||
+          !isRecord(data.blocks))
+        return { ok: false, code: 'INVALID_RESPONSE', message: 'Could not download this lesson.' };
+      try {
+        const document = parseLesson(isRecord(data.lesson.content) ? data.lesson.content.source as string : '');
+        return { ok: true, data: {
+          releaseId: data.releaseId,
+          lesson: { ...data.lesson, document } as Lesson,
+          blocks: data.blocks as Record<string, BlockState>,
+        } };
+      } catch {
+        return { ok: false, code: 'INVALID_CONTENT', message: 'This lesson has invalid content.' };
+      }
+    },
     async lesson(course: string, chapter: string): Promise<Result<Lesson>> {
       if (!valid(course) || !valid(chapter)) return invalid;
       const result = await request(

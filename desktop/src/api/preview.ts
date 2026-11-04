@@ -17,6 +17,7 @@ export function createPreviewClient(
   let token: string | null = null;
   let authVersion = 0;
   let userId: string | null = null;
+  let expiresAt: string | null = null;
   async function call(
     path: string,
     method = 'GET',
@@ -40,7 +41,11 @@ export function createPreviewClient(
       else if (body !== undefined) options.body = JSON.stringify(body);
 
       const response = await request(backendBase(base) + path, options);
-      if (response.status === 401 && session && session === token) token = null;
+      if (response.status === 401 && session && session === token) {
+        token = null;
+        userId = null;
+        expiresAt = null;
+      }
       if (response.status === 204) return { ok: true, data: null };
       const payload: unknown = await response.json();
       if (!response.ok || !record(payload) || payload.success !== true) {
@@ -65,6 +70,15 @@ export function createPreviewClient(
     }
   }
   return {
+    restoreSession(saved: { token: string; userId: string; expiresAt: string }) {
+      if (Date.parse(saved.expiresAt) <= Date.now()) return;
+      token = saved.token;
+      userId = saved.userId;
+      expiresAt = saved.expiresAt;
+    },
+    sessionSnapshot() {
+      return token && userId && expiresAt ? { token, userId, expiresAt } : null;
+    },
     async integrityRequest(
       path: string,
       method: string,
@@ -120,7 +134,7 @@ export function createPreviewClient(
       let result = await call('/api/v1/catalog');
       if (!result.ok && result.code === 'AUTH_REQUIRED')
         result = await call('/api/v1/catalog');
-      if (!result.ok) return { ok: false, message: result.message };
+      if (!result.ok) return { ok: false, message: result.message, code: result.code };
       if (
         !record(result.data) ||
         !Array.isArray(result.data.courses) ||
@@ -227,6 +241,11 @@ export function createPreviewClient(
       authVersion++;
     },
     async authStatus(): Promise<Result<{ signedIn: boolean }>> {
+      if (expiresAt && Date.parse(expiresAt) <= Date.now()) {
+        token = null;
+        userId = null;
+        expiresAt = null;
+      }
       if (!token) return { ok: true, data: { signedIn: false } };
       const result = await call('/api/v1/auth/me');
       if (result.ok && record(result.data) && record(result.data.user)) {
@@ -300,6 +319,8 @@ export function createPreviewClient(
           message: 'Sign-in was cancelled. Please try again.',
         };
       token = result.data.session.token;
+      expiresAt = typeof result.data.session.expiresAt === 'string'
+        ? result.data.session.expiresAt : null;
       userId =
         record(result.data.user) && typeof result.data.user.id === 'string'
           ? result.data.user.id
@@ -309,6 +330,8 @@ export function createPreviewClient(
     async signOut(): Promise<Result<{ signedIn: false }>> {
       const previous = token;
       token = null;
+      userId = null;
+      expiresAt = null;
       authVersion++;
       if (previous) {
         const result = await call(
