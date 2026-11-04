@@ -3,6 +3,7 @@ import type { Prisma } from "../../generated/prisma/index.js";
 import { prisma } from "../../db/prisma.js";
 import { resolveCourseFamily, type CourseFamily } from "../../shared/lib/course-tracks.js";
 import { NotFoundError } from "../../utils/errors.js";
+import { recomputeEnrollmentRollup } from "../progress/compute.js";
 
 export type ReleaseChapter = {
   id: string; key: string | null; slug: string; title: string; order: number;
@@ -106,7 +107,8 @@ export function cleanChapterSlug(slug: string): string {
 export async function upgradeEnrollmentToRelease(
   tx: Prisma.TransactionClient,
   enrollmentId: string,
-  targetReleaseId: string
+  targetReleaseId: string,
+  options?: { repair?: boolean }
 ) {
   const enrollment = await tx.enrollment.findUniqueOrThrow({
     where: { id: enrollmentId },
@@ -116,12 +118,12 @@ export async function upgradeEnrollmentToRelease(
     },
   });
 
-  if (enrollment.releaseId === targetReleaseId) {
+  if (enrollment.releaseId === targetReleaseId && !options?.repair) {
     return;
   }
 
   const targetRelease = await tx.courseRelease.findUniqueOrThrow({
-    where: { id: targetReleaseId },
+    where: { id: targetReleaseId, courseId: enrollment.courseId },
   });
 
   const content = targetRelease.content as unknown as ReleaseContent;
@@ -129,7 +131,8 @@ export async function upgradeEnrollmentToRelease(
     resolveCourseFamily(enrollment.course.familySlug, enrollment.course.variantFamily),
     enrollment.variantSlug
   );
-  const modules = content?.variants?.[variant] ?? content?.variants?.default ?? [];
+  const modules = content?.variants?.[variant];
+  if (!modules) throw new NotFoundError("Course variant not found in this release.");
   const targetChapters: ReleaseChapter[] = modules.flatMap((m) => m.chapters);
 
   const targetById = new Map(targetChapters.map((c) => [c.id, c]));
@@ -166,6 +169,8 @@ export async function upgradeEnrollmentToRelease(
           blocksTotal: Math.max(cp.blocksTotal, existingTarget.blocksTotal),
           score: Math.max(cp.score, existingTarget.score),
           maxScore: Math.max(cp.maxScore, existingTarget.maxScore),
+          timeSpentSeconds: Math.max(cp.timeSpentSeconds, existingTarget.timeSpentSeconds),
+          startedAt: existingTarget.startedAt ?? cp.startedAt,
           completedAt: existingTarget.completedAt ?? cp.completedAt,
           learningLog: existingTarget.learningLog ?? cp.learningLog ?? undefined,
         },
@@ -180,6 +185,7 @@ export async function upgradeEnrollmentToRelease(
           blocksTotal: cp.blocksTotal,
           score: cp.score,
           maxScore: cp.maxScore,
+          timeSpentSeconds: cp.timeSpentSeconds,
           startedAt: cp.startedAt,
           completedAt: cp.completedAt,
           learningLog: cp.learningLog ?? undefined,
@@ -188,14 +194,15 @@ export async function upgradeEnrollmentToRelease(
     }
   }
 
-  // 2. Forward-remap Response (answers) rows
+  // 2. Copy answers for unchanged blocks; original submissions remain in the old release.
   const responses = await tx.response.findMany({
     where: { enrollmentId },
-    include: { block: { include: { chapter: true } } },
+    include: { block: { include: { chapter: true } }, review: true },
     orderBy: { submittedAt: "asc" },
   });
 
-  const chapterCache = new Map<string, any>();
+  type ChapterWithBlocks = Awaited<ReturnType<typeof tx.chapter.findUnique<{ where: { id: string }, include: { blocks: { where: { archivedAt: null }, orderBy: { order: "asc" } } } }>>>;
+  const chapterCache = new Map<string, ChapterWithBlocks>();
   const getChapterWithBlocks = async (chapterId: string) => {
     if (chapterCache.has(chapterId)) return chapterCache.get(chapterId);
     const ch = await tx.chapter.findUnique({
@@ -215,21 +222,15 @@ export async function upgradeEnrollmentToRelease(
 
     if (!targetChapterMeta) continue;
 
-    const [oldChapterWithBlocks, targetChapterWithBlocks] = await Promise.all([
-      getChapterWithBlocks(oldChapter.id),
-      getChapterWithBlocks(targetChapterMeta.id),
-    ]);
+    const targetChapterWithBlocks = await getChapterWithBlocks(targetChapterMeta.id);
+    if (!targetChapterWithBlocks) continue;
 
-    if (!oldChapterWithBlocks || !targetChapterWithBlocks) continue;
-
-    const oldBlockIndex = oldChapterWithBlocks.blocks.findIndex((b: any) => b.id === resp.blockId);
-    const oldBlock = oldChapterWithBlocks.blocks[oldBlockIndex];
-
-    const targetBlock =
-      targetChapterWithBlocks.blocks.find((b: any) => b.id === resp.blockId) ??
-      targetChapterWithBlocks.blocks.find((b: any) => b.type === oldBlock?.type && b.order === oldBlock?.order) ??
-      targetChapterWithBlocks.blocks.filter((b: any) => b.type === oldBlock?.type)[0] ??
-      targetChapterWithBlocks.blocks[oldBlockIndex];
+    const oldBlock = resp.block;
+    // A changed question must never inherit an answer from a different question.
+    const targetBlock = targetChapterWithBlocks.blocks.find((block) =>
+      block.type === oldBlock.type && block.order === oldBlock.order &&
+      JSON.stringify(block.config) === JSON.stringify(oldBlock.config)
+    );
 
     if (!targetBlock) continue;
 
@@ -237,14 +238,24 @@ export async function upgradeEnrollmentToRelease(
       where: {
         blockId: targetBlock.id,
         userId: resp.userId,
+        enrollmentId,
         attempt: resp.attempt,
       },
     });
 
     if (!existingTargetResp) {
-      await tx.response.update({
-        where: { id: resp.id },
-        data: { blockId: targetBlock.id },
+      await tx.response.create({
+        data: {
+          blockId: targetBlock.id, userId: resp.userId, enrollmentId,
+          attempt: resp.attempt, status: resp.status, payload: resp.payload as Prisma.InputJsonValue,
+          score: resp.score, maxScore: resp.maxScore, isCorrect: resp.isCorrect,
+          durationMs: resp.durationMs, startedAt: resp.startedAt, submittedAt: resp.submittedAt,
+          ...(resp.review ? { review: { create: {
+            reviewerId: resp.review.reviewerId, score: resp.review.score,
+            feedback: resp.review.feedback, verdict: resp.review.verdict,
+            seenAt: resp.review.seenAt, createdAt: resp.review.createdAt,
+          } } } : {}),
+        },
       });
     }
   }
@@ -255,6 +266,5 @@ export async function upgradeEnrollmentToRelease(
     data: { releaseId: targetReleaseId },
   });
 
-  const { recomputeEnrollmentRollup } = await import("../progress/compute.js");
   await recomputeEnrollmentRollup(tx, enrollmentId, { preserveActivity: true });
 }

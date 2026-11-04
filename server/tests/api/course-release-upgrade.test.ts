@@ -3,7 +3,7 @@ import request from "supertest";
 import { createApp } from "../../src/app.js";
 import { prisma } from "../../src/db/prisma.js";
 import { createCourseFixture } from "../helpers/fixtures.js";
-import { ensureBaselineRelease } from "../../src/services/courses/releases.js";
+import { ensureBaselineRelease, type ReleaseContent } from "../../src/services/courses/releases.js";
 import { getCourseOverview } from "../../src/services/courses/overview.js";
 import { publishDashboardNewChapterRelease } from "../../src/services/teach/publish-course-release.js";
 import { recomputeEnrollmentRollup } from "../../src/services/progress/compute.js";
@@ -244,5 +244,59 @@ describe("course release auto-upgrade and alumni notification", () => {
     // 5. Verify response is still attached to enrollment
     const remappedResponse = await prisma.response.findUniqueOrThrow({ where: { id: response.id } });
     expect(remappedResponse.enrollmentId).toBe(fx.enrollment.id);
+  });
+
+  it("copies only equivalent answers into a replaced chapter and keeps the originals", async () => {
+    const baseline = await prisma.courseRelease.findUniqueOrThrow({ where: { id: baselineReleaseId } });
+    const content = structuredClone(baseline.content as unknown as ReleaseContent);
+    const old = content.variants.default[0].chapters.find((chapter) => chapter.id === fx.chapterA.id)!;
+    const replacement = await prisma.chapter.create({ data: {
+      courseId: fx.course.id, moduleId: fx.chapterA.moduleId,
+      slug: `${old.slug}--replacement-${Date.now()}`, title: old.title,
+      order: 1000, source: "# Revised A", publishedAt: new Date(),
+    } });
+    const matchingBlock = await prisma.block.create({ data: {
+      id: `blk-matching-${fx.tag}`, chapterId: replacement.id, type: "QUIZ", order: fx.quizBlock.order,
+      config: fx.quizBlock.config as object,
+    } });
+    const changedBlock = await prisma.block.create({ data: {
+      id: `blk-changed-${fx.tag}`, chapterId: replacement.id, type: "MUST_READ", order: fx.mustReadBlock.order,
+      config: { title: "Different required reading", url: "https://example.com/new" },
+    } });
+    const quizAnswer = await prisma.response.create({ data: {
+      blockId: fx.quizBlock.id, userId: fx.learner.id, enrollmentId: fx.enrollment.id,
+      attempt: 3, status: "SUBMITTED", payload: { selected: "a" }, isCorrect: true,
+    } });
+    const readingAnswer = await prisma.response.create({ data: {
+      blockId: fx.mustReadBlock.id, userId: fx.learner.id, enrollmentId: fx.enrollment.id,
+      attempt: 3, status: "SUBMITTED", payload: { confirmed: true },
+    } });
+    await prisma.chapterProgress.upsert({
+      where: { enrollmentId_chapterId: { enrollmentId: fx.enrollment.id, chapterId: fx.chapterA.id } },
+      create: { enrollmentId: fx.enrollment.id, chapterId: fx.chapterA.id, status: "COMPLETED" },
+      update: { status: "COMPLETED" },
+    });
+    content.variants.default[0].chapters = content.variants.default[0].chapters.map((chapter) =>
+      chapter.id === old.id ? { ...chapter, id: replacement.id } : chapter
+    );
+    const latestNumber = await prisma.courseRelease.aggregate({ where: { courseId: fx.course.id }, _max: { number: true } });
+    const release = await prisma.courseRelease.create({ data: {
+      courseId: fx.course.id, number: (latestNumber._max.number ?? 0) + 1,
+      content: content as unknown as object,
+    } });
+    await prisma.course.update({ where: { id: fx.course.id }, data: { activeReleaseId: release.id } });
+    await prisma.enrollment.update({ where: { id: fx.enrollment.id }, data: {
+      releaseId: baselineReleaseId, status: "IN_PROGRESS",
+    } });
+
+    await getCourseOverview(fx.course.slug, fx.learner);
+
+    expect((await prisma.chapterProgress.findUnique({ where: { enrollmentId_chapterId: {
+      enrollmentId: fx.enrollment.id, chapterId: replacement.id,
+    } } }))?.status).toBe("COMPLETED");
+    expect((await prisma.response.findUniqueOrThrow({ where: { id: quizAnswer.id } })).blockId).toBe(fx.quizBlock.id);
+    expect((await prisma.response.findUniqueOrThrow({ where: { id: readingAnswer.id } })).blockId).toBe(fx.mustReadBlock.id);
+    expect(await prisma.response.count({ where: { blockId: matchingBlock.id, attempt: 3 } })).toBe(1);
+    expect(await prisma.response.count({ where: { blockId: changedBlock.id } })).toBe(0);
   });
 });

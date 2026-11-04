@@ -10,7 +10,7 @@ import { requireBlockSubmissionAccess } from "../enrollment/api-learn-access.js"
 import { loadChapterThread } from "../help/threads.js";
 import { serializeHelpThread } from "../help/serialize.js";
 import { chapterChecksLine, chapterNextLine, chapterOpenLine, latestChapterResponses } from "../progress/chapter-recap.js";
-import { ensureChapterStarted, recomputeEnrollmentRollup } from "../progress/compute.js";
+import { ensureChapterStarted } from "../progress/compute.js";
 import { syllabusForEnrollment } from "../progress/enrollment-syllabus.js";
 import { loadCourseGate } from "../progress/gate.js";
 import { loadLearnerHabit } from "../progress/learner-habit.js";
@@ -74,7 +74,7 @@ export async function loadChapterReader(courseSlug: string, chapterSlug: string,
   if (!inCurrentRelease && course.activeReleaseId && enrollment.releaseId !== course.activeReleaseId && enrollment.status !== "COMPLETED") {
     await prisma.$transaction(async (tx) => {
       await upgradeEnrollmentToRelease(tx, enrollment.id, course.activeReleaseId!);
-    });
+    }, { timeout: 60_000 });
     enrollment.releaseId = course.activeReleaseId;
   }
 
