@@ -6,6 +6,7 @@ import { createCourseFixture } from "../helpers/fixtures.js";
 import { ensureBaselineRelease } from "../../src/services/courses/releases.js";
 import { getCourseOverview } from "../../src/services/courses/overview.js";
 import { publishDashboardNewChapterRelease } from "../../src/services/teach/publish-course-release.js";
+import { recomputeEnrollmentRollup } from "../../src/services/progress/compute.js";
 
 const app = createApp();
 
@@ -151,5 +152,97 @@ describe("course release auto-upgrade and alumni notification", () => {
 
     expect(notification).not.toBeNull();
     expect(notification?.title).toBe("New Chapters Available!");
+  });
+
+  it("preserves completed chapters and question responses when upgrading release", async () => {
+    // 1. Mark chapterA as completed and submit a quiz response
+    await prisma.chapterProgress.upsert({
+      where: { enrollmentId_chapterId: { enrollmentId: fx.enrollment.id, chapterId: fx.chapterA.id } },
+      create: {
+        enrollmentId: fx.enrollment.id,
+        chapterId: fx.chapterA.id,
+        status: "COMPLETED",
+        blocksCompleted: 2,
+        blocksTotal: 2,
+        score: 10,
+        maxScore: 10,
+      },
+      update: {
+        status: "COMPLETED",
+        blocksCompleted: 2,
+        blocksTotal: 2,
+        score: 10,
+        maxScore: 10,
+      },
+    });
+
+    const response = await prisma.response.create({
+      data: {
+        blockId: fx.quizBlock.id,
+        userId: fx.learner.id,
+        enrollmentId: fx.enrollment.id,
+        attempt: 1,
+        status: "SUBMITTED",
+        payload: { selected: "1" },
+        isCorrect: true,
+        score: 10,
+        maxScore: 10,
+      },
+    });
+
+    // Pin enrollment to baseline and compute rollup
+    await prisma.enrollment.update({
+      where: { id: fx.enrollment.id },
+      data: { releaseId: baselineReleaseId, status: "IN_PROGRESS" },
+    });
+    await prisma.$transaction((tx) => recomputeEnrollmentRollup(tx, fx.enrollment.id, { preserveActivity: true }));
+
+    const initialEnrollment = await prisma.enrollment.findUniqueOrThrow({ where: { id: fx.enrollment.id } });
+    expect(initialEnrollment.chaptersCompleted).toBe(1);
+
+    // 2. Publish an updated release with a new chapter
+    const moduleRow = await prisma.module.findFirstOrThrow({ where: { courseId: fx.course.id } });
+    const extraChapter = await prisma.chapter.create({
+      data: {
+        id: `ch-extra-${Date.now()}`,
+        courseId: fx.course.id,
+        moduleId: moduleRow.id,
+        slug: `extra-chapter-${Date.now()}`,
+        title: "Extra Chapter",
+        order: 102,
+        publishedAt: new Date(),
+        readerMode: "DEFAULT",
+        source: "# Extra Chapter",
+      },
+    });
+
+    await prisma.$transaction((tx) =>
+      publishDashboardNewChapterRelease(tx, fx.course.id, extraChapter.id)
+    );
+
+    const updatedCourse = await prisma.course.findUniqueOrThrow({ where: { id: fx.course.id } });
+    expect(updatedCourse.activeReleaseId).not.toBe(baselineReleaseId);
+
+    // Ensure enrollment is still on older release prior to opening
+    await prisma.enrollment.update({
+      where: { id: fx.enrollment.id },
+      data: { releaseId: baselineReleaseId, status: "IN_PROGRESS" },
+    });
+
+    // 3. Learner opens course overview -> triggers auto-upgrade
+    const overview = await getCourseOverview(fx.course.slug, fx.learner);
+
+    // 4. Verify completed chapters were NOT wiped out
+    expect(overview.enrollment?.chaptersCompleted).toBe(1);
+    expect(overview.enrollment?.percentComplete).toBeGreaterThan(0);
+
+    const refreshedEnrollment = await prisma.enrollment.findUniqueOrThrow({ where: { id: fx.enrollment.id } });
+    expect(refreshedEnrollment.releaseId).toBe(updatedCourse.activeReleaseId);
+    expect(refreshedEnrollment.chaptersCompleted).toBe(1);
+    expect(refreshedEnrollment.percentComplete).toBeGreaterThan(0);
+
+    // 5. Verify response is still attached to enrollment
+    const remappedResponse = await prisma.response.findUniqueOrThrow({ where: { id: response.id } });
+    expect(remappedResponse.enrollmentId).toBe(fx.enrollment.id);
   });
 });

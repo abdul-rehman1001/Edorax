@@ -16,7 +16,7 @@ import { loadCourseGate } from "../progress/gate.js";
 import { loadLearnerHabit } from "../progress/learner-habit.js";
 import { milestoneReflectionBlocked } from "../progress/reflection.js";
 import { isCompletableBlock, previousChapterId } from "../progress/rules.js";
-import { releaseForEnrollment, releaseModulesWithBlocks, variantForRelease } from "../courses/releases.js";
+import { releaseForEnrollment, releaseModulesWithBlocks, upgradeEnrollmentToRelease, variantForRelease } from "../courses/releases.js";
 import { resolveCourseFamily } from "../../shared/lib/course-tracks.js";
 import { findChapterIndex } from "./chapter-slug.js";
 
@@ -72,12 +72,10 @@ export async function loadChapterReader(courseSlug: string, chapterSlug: string,
   const inCurrentRelease = !currentRelease || currentRelease.modules.some(m => m.chapters.some(c => c.slug === chapterSlug));
 
   if (!inCurrentRelease && course.activeReleaseId && enrollment.releaseId !== course.activeReleaseId && enrollment.status !== "COMPLETED") {
-    await prisma.enrollment.update({
-      where: { id: enrollment.id },
-      data: { releaseId: course.activeReleaseId },
+    await prisma.$transaction(async (tx) => {
+      await upgradeEnrollmentToRelease(tx, enrollment.id, course.activeReleaseId!);
     });
     enrollment.releaseId = course.activeReleaseId;
-    await recomputeEnrollmentRollup(prisma, enrollment.id, { preserveActivity: true });
   }
 
   const bypassLocking = shouldBypassProgressGating(user);
