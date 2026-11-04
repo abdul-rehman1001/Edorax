@@ -7,9 +7,8 @@ import { shouldBypassProgressGating } from "../auth/seed-access.js";
 import { enrollmentGrantsContentAccess } from "../enrollment/lifecycle.js";
 import { redeemCouponOnCourseOpen } from "../coupons/redeem.js";
 import { pickDefaultOpenModule, resolveContinueChapterPath, syllabusForEnrollment } from "../progress/enrollment-syllabus.js";
-import { releaseForEnrollment, releaseModulesWithBlocks } from "./releases.js";
+import { releaseForEnrollment, releaseModulesWithBlocks, upgradeEnrollmentToRelease } from "./releases.js";
 import { resolveCourseFamily } from "../../shared/lib/course-tracks.js";
-import { recomputeEnrollmentRollup } from "../progress/compute.js";
 
 /** Everything the course overview page shows, including whether the caller may read it. */
 export async function getCourseOverview(courseSlug: string, user: SessionUser): Promise<CourseOverview> {
@@ -68,13 +67,10 @@ export async function getCourseOverview(courseSlug: string, user: SessionUser): 
     if (enrollment.status === "COMPLETED") {
       curriculumUpgradeAvailable = true;
     } else {
-      // Automatically shift active/in-progress learners to the latest active release
-      await prisma.enrollment.update({
-        where: { id: enrollment.id },
-        data: { releaseId: activeReleaseId },
-      });
-      enrollment.releaseId = activeReleaseId;
-      await recomputeEnrollmentRollup(prisma, enrollment.id, { preserveActivity: true });
+      // Automatically shift active/in-progress learners to the latest active release while preserving progress & answers
+      const upgraded = await prisma.$transaction((tx) =>
+        upgradeEnrollmentToRelease(tx, enrollment.id, activeReleaseId), { timeout: 60_000 });
+      if (upgraded) enrollment.releaseId = activeReleaseId;
       const refreshed = await prisma.enrollment.findUnique({
         where: { id: enrollment.id },
         select: { percentComplete: true, chaptersCompleted: true, pendingReviews: true },
@@ -136,11 +132,9 @@ export async function upgradeEnrollmentCurriculum(courseSlug: string, user: Sess
   });
   if (!enrollment) throw new NotFoundError("Enrollment not found");
 
-  await prisma.enrollment.update({
-    where: { id: enrollment.id },
-    data: { releaseId: course.activeReleaseId },
-  });
-  await recomputeEnrollmentRollup(prisma, enrollment.id, { preserveActivity: true });
+  const upgraded = await prisma.$transaction((tx) =>
+    upgradeEnrollmentToRelease(tx, enrollment.id, course.activeReleaseId!), { timeout: 60_000 });
+  if (!upgraded) throw new BadRequestError("Completed chapters have no match in the latest curriculum.");
 
   return { success: true, releaseId: course.activeReleaseId };
 }

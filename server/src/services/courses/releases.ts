@@ -3,6 +3,8 @@ import type { Prisma } from "../../generated/prisma/index.js";
 import { prisma } from "../../db/prisma.js";
 import { resolveCourseFamily, type CourseFamily } from "../../shared/lib/course-tracks.js";
 import { NotFoundError } from "../../utils/errors.js";
+import { recomputeEnrollmentRollup } from "../progress/compute.js";
+import { canonical } from "../teach/course-update-matching.js";
 
 export type ReleaseChapter = {
   id: string; key: string | null; slug: string; title: string; order: number;
@@ -93,4 +95,186 @@ export async function assertEnrollmentChapter(tx: Prisma.TransactionClient, enro
   const modules = content.variants[variant];
   if (!modules) throw new NotFoundError("Course variant not found in this release.");
   if (!modules.some(module => module.chapters.some(chapter => chapter.id === chapterId))) throw new NotFoundError("Chapter is not in this learner's course release.");
+}
+
+export function cleanChapterSlug(slug: string): string {
+  return slug.replace(/--[a-z0-9]+$/i, "").trim().toLowerCase();
+}
+
+/**
+ * Forward-migrates an enrollment's progress and submitted responses from their current release
+ * into a target release, preserving completed chapters, scores, learning logs, and question answers.
+ */
+export async function upgradeEnrollmentToRelease(
+  tx: Prisma.TransactionClient,
+  enrollmentId: string,
+  targetReleaseId: string,
+  options?: { repair?: boolean }
+) {
+  // Serialize concurrent overview/reader requests before checking the pinned release.
+  await tx.$queryRaw`SELECT "id" FROM "Enrollment" WHERE "id" = ${enrollmentId} FOR UPDATE`;
+  const enrollment = await tx.enrollment.findUniqueOrThrow({
+    where: { id: enrollmentId },
+    include: {
+      course: { select: { id: true, slug: true, familySlug: true, variantFamily: true, activeReleaseId: true } },
+      chapterProgress: { include: { chapter: true } },
+    },
+  });
+
+  if (enrollment.releaseId === targetReleaseId && !options?.repair) {
+    return true;
+  }
+
+  const targetRelease = await tx.courseRelease.findUniqueOrThrow({
+    where: { id: targetReleaseId, courseId: enrollment.courseId },
+  });
+
+  const content = targetRelease.content as unknown as ReleaseContent;
+  const variant = variantForRelease(
+    resolveCourseFamily(enrollment.course.familySlug, enrollment.course.variantFamily),
+    enrollment.variantSlug
+  );
+  const modules = content?.variants?.[variant];
+  if (!modules) throw new NotFoundError("Course variant not found in this release.");
+  const targetChapters: ReleaseChapter[] = modules.flatMap((m) => m.chapters);
+
+  const targetById = new Map(targetChapters.map((c) => [c.id, c]));
+  const targetBySlug = new Map(targetChapters.map((c) => [cleanChapterSlug(c.slug), c]));
+  const targetByKey = new Map(targetChapters.filter((c) => c.key).map((c) => [c.key!, c]));
+
+  const counterpart = (chapter: { contentKey: string | null; slug: string }) =>
+    (chapter.contentKey ? targetByKey.get(chapter.contentKey) : null) ?? targetBySlug.get(cleanChapterSlug(chapter.slug));
+
+  // A removed/renamed completed lesson cannot be represented in the target
+  // syllabus. Leave the learner on the working release instead of showing 0%.
+  if (enrollment.chapterProgress.some((progress) =>
+    progress.status === "COMPLETED" && !targetById.has(progress.chapterId) && !counterpart(progress.chapter)
+  )) return false;
+
+  // 1. Forward-migrate ChapterProgress rows
+  for (const cp of enrollment.chapterProgress) {
+    if (targetById.has(cp.chapterId)) continue;
+
+    const targetChapter = counterpart(cp.chapter);
+
+    if (!targetChapter) continue;
+
+    const existingTarget = await tx.chapterProgress.findUnique({
+      where: { enrollmentId_chapterId: { enrollmentId, chapterId: targetChapter.id } },
+    });
+
+    if (existingTarget) {
+      const isCompleted = cp.status === "COMPLETED" || existingTarget.status === "COMPLETED";
+      const newStatus = isCompleted
+        ? "COMPLETED"
+        : cp.status === "IN_PROGRESS" || existingTarget.status === "IN_PROGRESS"
+          ? "IN_PROGRESS"
+          : "NOT_STARTED";
+
+      await tx.chapterProgress.update({
+        where: { id: existingTarget.id },
+        data: {
+          status: newStatus,
+          blocksCompleted: Math.max(cp.blocksCompleted, existingTarget.blocksCompleted),
+          blocksTotal: Math.max(cp.blocksTotal, existingTarget.blocksTotal),
+          score: Math.max(cp.score, existingTarget.score),
+          maxScore: Math.max(cp.maxScore, existingTarget.maxScore),
+          timeSpentSeconds: Math.max(cp.timeSpentSeconds, existingTarget.timeSpentSeconds),
+          startedAt: existingTarget.startedAt ?? cp.startedAt,
+          completedAt: existingTarget.completedAt ?? cp.completedAt,
+          learningLog: existingTarget.learningLog ?? cp.learningLog ?? undefined,
+        },
+      });
+    } else {
+      await tx.chapterProgress.create({
+        data: {
+          enrollmentId,
+          chapterId: targetChapter.id,
+          status: cp.status,
+          blocksCompleted: cp.blocksCompleted,
+          blocksTotal: cp.blocksTotal,
+          score: cp.score,
+          maxScore: cp.maxScore,
+          timeSpentSeconds: cp.timeSpentSeconds,
+          startedAt: cp.startedAt,
+          completedAt: cp.completedAt,
+          learningLog: cp.learningLog ?? undefined,
+        },
+      });
+    }
+  }
+
+  // 2. Copy answers for unchanged blocks; original submissions remain in the old release.
+  const responses = await tx.response.findMany({
+    where: { enrollmentId },
+    include: { block: { include: { chapter: true } }, review: true },
+    orderBy: { submittedAt: "asc" },
+  });
+
+  type ChapterWithBlocks = Awaited<ReturnType<typeof tx.chapter.findUnique<{ where: { id: string }, include: { blocks: { where: { archivedAt: null }, orderBy: { order: "asc" } } } }>>>;
+  const chapterCache = new Map<string, ChapterWithBlocks>();
+  const getChapterWithBlocks = async (chapterId: string) => {
+    if (chapterCache.has(chapterId)) return chapterCache.get(chapterId);
+    const ch = await tx.chapter.findUnique({
+      where: { id: chapterId },
+      include: { blocks: { where: { archivedAt: null }, orderBy: { order: "asc" } } },
+    });
+    chapterCache.set(chapterId, ch);
+    return ch;
+  };
+
+  for (const resp of responses) {
+    if (targetById.has(resp.block.chapterId)) continue;
+
+    const oldChapter = resp.block.chapter;
+    const targetChapterMeta = counterpart(oldChapter);
+
+    if (!targetChapterMeta) continue;
+
+    const targetChapterWithBlocks = await getChapterWithBlocks(targetChapterMeta.id);
+    if (!targetChapterWithBlocks) continue;
+
+    const oldBlock = resp.block;
+    // A changed question must never inherit an answer from a different question.
+    const targetBlock = targetChapterWithBlocks.blocks.find((block) =>
+      block.type === oldBlock.type && block.order === oldBlock.order &&
+      canonical(block.config) === canonical(oldBlock.config)
+    );
+
+    if (!targetBlock) continue;
+
+    const existingTargetResp = await tx.response.findFirst({
+      where: {
+        blockId: targetBlock.id,
+        userId: resp.userId,
+        enrollmentId,
+        attempt: resp.attempt,
+      },
+    });
+
+    if (!existingTargetResp) {
+      await tx.response.create({
+        data: {
+          blockId: targetBlock.id, userId: resp.userId, enrollmentId,
+          attempt: resp.attempt, status: resp.status, payload: resp.payload as Prisma.InputJsonValue,
+          score: resp.score, maxScore: resp.maxScore, isCorrect: resp.isCorrect,
+          durationMs: resp.durationMs, startedAt: resp.startedAt, submittedAt: resp.submittedAt,
+          ...(resp.review ? { review: { create: {
+            reviewerId: resp.review.reviewerId, score: resp.review.score,
+            feedback: resp.review.feedback, verdict: resp.review.verdict,
+            seenAt: resp.review.seenAt, createdAt: resp.review.createdAt,
+          } } } : {}),
+        },
+      });
+    }
+  }
+
+  // 3. Update releaseId and recalculate rollup metrics
+  await tx.enrollment.update({
+    where: { id: enrollmentId },
+    data: { releaseId: targetReleaseId },
+  });
+
+  await recomputeEnrollmentRollup(tx, enrollmentId, { preserveActivity: true });
+  return true;
 }
