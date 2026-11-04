@@ -15,6 +15,8 @@ export type ChapterSidebarProps = {
   collapsed: boolean;
   onToggle: () => void;
   mobileSheet?: boolean;
+  width?: number;
+  onWidthChange?: (width: number) => void;
 };
 
 function SidebarPanel({
@@ -94,7 +96,7 @@ function SidebarPanel({
                 >
                   {String(mod.order).padStart(2, "0")}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground/90">
+                <span className="min-w-0 flex-1 break-words text-sm font-medium text-foreground/90">
                   {mod.title}
                 </span>
                 <div className="flex items-center gap-1.5">
@@ -144,6 +146,8 @@ export function ChapterSidebar({
   collapsed,
   onToggle,
   mobileSheet = false,
+  width,
+  onWidthChange,
 }: ChapterSidebarProps) {
   const activeSlug = currentChapterSlug;
   const activeLinkRef = useRef<HTMLAnchorElement>(null);
@@ -221,8 +225,55 @@ export function ChapterSidebar({
   }
 
   return (
-    <aside className="hidden w-72 shrink-0 flex-col border-r border-border bg-card text-card-foreground transition-[width] duration-300 ease-in-out md:flex">
+    <aside
+      className="relative hidden w-72 shrink-0 flex-col border-r border-border bg-card text-card-foreground md:flex"
+      style={width ? { width, maxWidth: "calc(100vw - 320px)" } : undefined}
+    >
       <SidebarPanel {...panelProps} />
+      {width && onWidthChange && (
+        <div
+          role="separator"
+          tabIndex={0}
+          aria-label="Resize curriculum sidebar"
+          aria-orientation="vertical"
+          aria-valuemin={240}
+          aria-valuemax={560}
+          aria-valuenow={width}
+          title="Drag to resize curriculum (double-click to reset)"
+          className="absolute inset-y-0 right-0 w-2 cursor-col-resize bg-transparent hover:bg-primary/20 focus-visible:bg-primary/20"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+            const left = event.currentTarget.parentElement?.getBoundingClientRect().left ?? 0;
+            onWidthChange(
+              Math.max(
+                240,
+                Math.min(560, window.innerWidth - 320, Math.round(event.clientX - left)),
+              ),
+            );
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            onWidthChange(
+              Math.max(
+                240,
+                Math.min(
+                  560,
+                  window.innerWidth - 320,
+                  width + (event.key === "ArrowRight" ? 20 : -20),
+                ),
+              ),
+            );
+          }}
+          onDoubleClick={() => onWidthChange(288)}
+        >
+          <span className="pointer-events-none absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-border" />
+        </div>
+      )}
     </aside>
   );
 }
