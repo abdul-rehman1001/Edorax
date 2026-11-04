@@ -28,8 +28,6 @@ function SidebarPanel({
   openModules,
   toggleModule,
   onToggle,
-  width,
-  onWidthChange,
 }: {
   courseSlug: string;
   courseTitle: string;
@@ -39,8 +37,6 @@ function SidebarPanel({
   openModules: Set<string>;
   toggleModule: (id: string) => void;
   onToggle: () => void;
-  width?: number;
-  onWidthChange?: (width: number) => void;
 }) {
   return (
     <>
@@ -69,22 +65,6 @@ function SidebarPanel({
       >
         {courseTitle}
       </Link>
-      {width && onWidthChange && (
-        <label className="flex items-center gap-3 border-b border-border px-4 py-2 text-xs text-muted-foreground">
-          <span className="shrink-0">Sidebar width</span>
-          <input
-            type="range"
-            min={240}
-            max={560}
-            step={8}
-            value={width}
-            onChange={(event) => onWidthChange(Number(event.currentTarget.value))}
-            className="min-w-0 flex-1 cursor-pointer accent-primary"
-            aria-label="Sidebar width"
-          />
-        </label>
-      )}
-
       <nav className="flex-1 overflow-y-auto py-2" aria-label="Course chapters">
         {modules.map((mod) => {
           const isOpen = openModules.has(mod.id);
@@ -225,8 +205,6 @@ export function ChapterSidebar({
     openModules,
     toggleModule,
     onToggle,
-    width: mobileSheet ? undefined : width,
-    onWidthChange,
   };
 
   if (mobileSheet) {
