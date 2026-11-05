@@ -1,3 +1,7 @@
+import { prisma } from "../../db/prisma.js";
+import { approveManualAccess } from "../../services/enrollment/manual-access.js";
+import { ok } from "../../utils/responses.js";
+import { enrollmentParams } from "../../validations/enrollments.js";
 import { Router } from "express";
 import { userRateLimit } from "../../middlewares/rate-limit.js";
 import * as admin from "../../controllers/admin.js";
@@ -45,6 +49,15 @@ router.use(authenticate, requireAdmin);
 const profileLimiter = userRateLimit({ scope: "admin-profile", max: 10, windowMs: 15 * 60_000 });
 router.patch("/profile", profileLimiter, validateBody(adminProfileBody), admin.updateProfile);
 router.patch("/password", profileLimiter, validateBody(adminPasswordBody), admin.updatePassword);
+
+router.get("/manual-access", async (_req, res) => {
+  const rows = await prisma.enrollment.findMany({ where: { lifecycle: "PAYMENT_REQUIRED", userId: { not: null } }, select: { id: true, createdAt: true, user: { select: { name: true, email: true } }, course: { select: { title: true } }, payment: { select: { amountCents: true, currency: true } } }, orderBy: { createdAt: "desc" }, take: 500 });
+  ok(res, rows);
+});
+router.post("/manual-access/:enrollmentId/approve", validateParams(enrollmentParams), async (req, res) => {
+  await approveManualAccess(req.params.enrollmentId as string, req.user!);
+  ok(res, { approved: true });
+});
 
 router.get("/overview", admin.getOverview);
 router.get("/metrics", validateQuery(metricsQuery), admin.getMetrics);

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Checkout } from "@/shared/api/catalog";
 import {
-  completeEnrollmentPaymentStubAction,
+  requestCourseAccessAction,
   selfEnrollInCourseAction,
 } from "@/server/actions/enroll";
 import { requireVerifiedUser } from "@/server/auth/guards";
@@ -13,10 +13,13 @@ import { cn } from "@/lib/utils";
 
 export default async function CourseCheckoutPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ courseSlug: string }>;
+  searchParams: Promise<{ requested?: string }>;
 }) {
   const { courseSlug } = await params;
+  const { requested } = await searchParams;
   await requireVerifiedUser();
   const { course, enrollment, state } = await serverApiFetchOrNotFound<Checkout>(
     `/api/v1/courses/${encodeURIComponent(courseSlug)}/checkout`
@@ -37,9 +40,9 @@ export default async function CourseCheckoutPage({
         ← Back to course details
       </Link>
 
-      <h1 className="mt-6 text-2xl font-semibold tracking-tight">Checkout</h1>
+      <h1 className="mt-6 text-2xl font-semibold tracking-tight">Request course access</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Complete payment to unlock <span className="font-medium text-foreground">{course.title}</span>.
+        Request access to <span className="font-medium text-foreground">{course.title}</span>.
       </p>
 
       <div className="mt-8 rounded-2xl border bg-card p-6">
@@ -47,26 +50,25 @@ export default async function CourseCheckoutPage({
           <span className="text-sm text-muted-foreground">Total due</span>
           <span className="text-2xl font-semibold tabular-nums">{priceLabel}</span>
         </div>
-        <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-          Stripe integration is not connected yet. Use the button below to simulate a successful
-          payment in development. Organization allocations (Pathment) do not waive learner payment
-          for paid courses.
+        <p className="mt-4 text-sm text-muted-foreground">
+          An administrator will contact you to arrange payment and grant access.
         </p>
+        {requested === "1" && <p className="mt-4 text-sm">Your request was sent to the administrators.</p>}
 
         {!enrollment ? (
           <form action={selfEnrollInCourseAction} className="mt-6">
             <input type="hidden" name="courseId" value={course.id} />
             <input type="hidden" name="courseSlug" value={course.slug} />
             <Button type="submit" className="w-full">
-              Enroll & continue
+              Continue
             </Button>
           </form>
         ) : (
-          <form action={completeEnrollmentPaymentStubAction} className="mt-6">
+          <form action={requestCourseAccessAction} className="mt-6">
             <input type="hidden" name="enrollmentId" value={enrollment.id} />
-            <input type="hidden" name="courseId" value={course.id} />
+            <input type="hidden" name="courseSlug" value={course.slug} />
             <Button type="submit" className="w-full">
-              Pay {priceLabel} (stub)
+              {requested === "1" ? "Send request again" : "Request access"}
             </Button>
           </form>
         )}

@@ -1,3 +1,4 @@
+import { userRateLimit } from "../../middlewares/rate-limit.js";
 import { Router } from "express";
 import * as enrollments from "../../controllers/enrollments.js";
 import { authenticate } from "../../middlewares/authenticate.js";
@@ -10,6 +11,6 @@ const router = Router();
 router.use(authenticate, requireVerified);
 
 router.post("/", validateBody(selfEnrollBody), enrollments.create);
-router.post("/:enrollmentId/payment-stub", validateParams(enrollmentParams), enrollments.paymentStub);
+router.post("/:enrollmentId/request-access", userRateLimit({ scope: "course-access-request", max: 5, windowMs: 60 * 60_000 }), validateParams(enrollmentParams), enrollments.requestAccess);
 
 export default router;

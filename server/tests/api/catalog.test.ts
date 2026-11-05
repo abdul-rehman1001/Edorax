@@ -95,7 +95,7 @@ describe("self-enrolment and checkout", () => {
     expect(res.body.code).toBe("ALREADY_ENROLLED");
   });
 
-  it("enrols into a paid course as payment-required, then the stub payment activates it", async () => {
+  it("keeps a paid enrollment locked and does not expose the payment stub", async () => {
     const before = await request(app).get(`/api/v1/courses/${paidSlug}/checkout`).set(auth());
     expect(before.body.data.state).toBe("no_enrollment");
 
@@ -112,17 +112,15 @@ describe("self-enrolment and checkout", () => {
     expect(overview.body.data.access).toBe("payment_required");
 
     const pay = await request(app).post(`/api/v1/enrollments/${enrol.body.data.enrollmentId}/payment-stub`).set(auth());
-    expect(pay.status).toBe(200);
-    expect(pay.body.data).toEqual({ courseSlug: paidSlug, alreadyActive: false });
-
-    const paid = await request(app).get(`/api/v1/courses/${paidSlug}/checkout`).set(auth());
-    expect(paid.body.data.state).toBe("already_paid");
+    expect(pay.status).toBe(404);
     const payment = await prisma.payment.findUnique({ where: { enrollmentId: enrol.body.data.enrollmentId } });
-    expect(payment?.status).toBe("SUCCEEDED");
+    expect(payment?.status).toBe("PENDING");
+    const approve = await request(app).post(`/api/v1/admin/manual-access/${enrol.body.data.enrollmentId}/approve`).set(auth());
+    expect(approve.status).toBe(403);
   });
 
-  it("will not pay for someone else's enrolment", async () => {
-    const res = await request(app).post(`/api/v1/enrollments/${fx.enrollment.id}/payment-stub`).set({ Authorization: `Bearer ${fx.unverifiedToken}` });
+  it("does not expose the old payment stub", async () => {
+    const res = await request(app).post(`/api/v1/enrollments/${fx.enrollment.id}/payment-stub`).set(auth());
     expect(res.status).toBe(404);
   });
 });

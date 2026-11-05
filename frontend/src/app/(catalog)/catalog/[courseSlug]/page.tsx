@@ -64,7 +64,7 @@ export default async function CatalogCoursePage({
   // Visitors sign up first and land straight in the course (see app/enroll); learners enroll in one
   // click and open the first lesson.
   const enrollPath = `/enroll/${course.slug}`;
-  const enrollLabel = course.pricingType === "PAID" ? "Enroll & checkout" : "Enroll for free";
+  const enrollLabel = course.pricingType === "PAID" ? "Request access" : "Enroll for free";
 
   const enrollActions = (
     <>
@@ -74,7 +74,7 @@ export default async function CatalogCoursePage({
         </Link>
       ) : needsPayment ? (
         <Link href={`/courses/${course.slug}/checkout`} className={buttonVariants({ size: "lg" })}>
-          Complete payment
+          Request access
         </Link>
       ) : !user ? (
         <Link href={`/signup?redirectTo=${encodeURIComponent(enrollPath)}`} className={buttonVariants({ size: "lg" })}>
