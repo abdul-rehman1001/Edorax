@@ -14,8 +14,8 @@ export async function requestManualAccess(enrollmentId: string, userId: string) 
   const recipients = [...new Set([...admins.map(a => a.email), ...env.ADMIN_NOTIFY_EMAIL].map(e => e.trim().toLowerCase()).filter(Boolean))];
   if (!recipients.length) throw new UnprocessableError("No administrator email is configured.");
   const text = `Course access request\n\nLearner: ${enrollment.user.name ?? ""} (${enrollment.user.email})\nCourse: ${enrollment.course.title}\nPrice: ${enrollment.payment?.amountCents ?? enrollment.course.priceCents} cents ${enrollment.payment?.currency ?? enrollment.course.currency}\n\nReview: ${appBaseUrl()}/admin/course-access`;
-  const results = await Promise.all(recipients.map(to => sendEmail({ to, subject: `Course access request: ${enrollment.course.title}`, text, html: `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>` })));
-  if (!results.some(result => result.sent)) throw new UnprocessableError("Could not send your request. Please try again later.");
+  const results = await Promise.allSettled(recipients.map(to => sendEmail({ to, subject: `Course access request: ${enrollment.course.title}`, text, html: `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>` })));
+  if (!results.some(result => result.status === "fulfilled" && result.value.sent)) throw new UnprocessableError("Could not send your request. Please try again later.");
 }
 
 export async function approveManualAccess(enrollmentId: string, actor: AdminActor) {

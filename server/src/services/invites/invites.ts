@@ -96,7 +96,7 @@ export async function acceptInvite(user: SessionUser, token: string, name?: stri
     if (checkoutRequired) {
       await tx.payment.upsert({
         where: { enrollmentId: enrollment.id },
-        create: { enrollmentId: enrollment.id, amountCents: invite.course.priceCents, currency: invite.course.currency, status: "PENDING", provider: "stub" },
+        create: { enrollmentId: enrollment.id, amountCents: invite.course.priceCents, currency: invite.course.currency, status: "PENDING" },
         update: {},
       });
     }

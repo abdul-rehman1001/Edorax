@@ -1,17 +1,10 @@
-import { revalidatePath } from "next/cache";
+import { AdminActionForm } from "@/components/admin/admin-action-form";
+import { approveCourseAccessAction } from "@/server/actions/admin/course-access";
 import { serverApiFetch } from "@/lib/api-server";
 import { requireRole } from "@/server/auth/guards";
 import { formatPriceCents } from "@/lib/format-price";
 
 type RequestRow = { id: string; user: { name: string | null; email: string } | null; course: { title: string }; payment: { amountCents: number; currency: string } | null };
-
-async function approve(formData: FormData) {
-  "use server";
-  await requireRole("ADMIN");
-  const id = String(formData.get("id") ?? "");
-  await serverApiFetch(`/api/v1/admin/manual-access/${encodeURIComponent(id)}/approve`, { method: "POST" });
-  revalidatePath("/admin/course-access");
-}
 
 export default async function CourseAccessPage() {
   await requireRole("ADMIN");
@@ -22,7 +15,7 @@ export default async function CourseAccessPage() {
     {requests.map(row => <div key={row.id} className="rounded border p-4 space-y-2">
       <p className="font-medium">{row.course.title} — {row.payment ? formatPriceCents(row.payment.amountCents, row.payment.currency) : "Payment details unavailable"}</p>
       <p>{row.user?.name} {row.user?.email}</p>
-      {row.payment && <form action={approve}><input type="hidden" name="id" value={row.id} /><button className="rounded bg-primary px-4 py-2 text-primary-foreground" type="submit">Confirm payment and grant access</button></form>}
+      {row.payment && <AdminActionForm action={approveCourseAccessAction} submitLabel="Grant access" pendingLabel="Granting…" confirm={{ question: `Confirm payment for ${row.user?.email ?? "this learner"}?`, description: `Grant access to ${row.course.title} after verifying payment of ${formatPriceCents(row.payment.amountCents, row.payment.currency)}.`, confirmLabel: "Confirm payment and grant access" }}><input type="hidden" name="id" value={row.id} /></AdminActionForm>}
     </div>)}
   </div>;
 }

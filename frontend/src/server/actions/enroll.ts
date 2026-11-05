@@ -56,7 +56,11 @@ export async function selfEnrollInCourseAction(formData: FormData): Promise<void
 
   refreshLearnerPages();
   if (result.lifecycle === "PAYMENT_REQUIRED") {
-    await serverApiFetch(`/api/v1/enrollments/${encodeURIComponent(result.enrollmentId)}/request-access`, { method: "POST" });
+    try {
+      await serverApiFetch(`/api/v1/enrollments/${encodeURIComponent(result.enrollmentId)}/request-access`, { method: "POST" });
+    } catch {
+      redirect(`/courses/${result.courseSlug}/checkout?request_failed=1`);
+    }
     redirect(`/courses/${result.courseSlug}/checkout?requested=1`);
   }
   await leaveEnrollmentForMascot(courseId);
@@ -68,6 +72,10 @@ export async function requestCourseAccessAction(formData: FormData): Promise<voi
   const enrollmentId = String(formData.get("enrollmentId") ?? "");
   const courseSlug = String(formData.get("courseSlug") ?? "");
   if (!enrollmentId || !courseSlug) throw new Error("Missing enrollment.");
-  await serverApiFetch(`/api/v1/enrollments/${encodeURIComponent(enrollmentId)}/request-access`, { method: "POST" });
+  try {
+    await serverApiFetch(`/api/v1/enrollments/${encodeURIComponent(enrollmentId)}/request-access`, { method: "POST" });
+  } catch {
+    redirect(`/courses/${encodeURIComponent(courseSlug)}/checkout?request_failed=1`);
+  }
   redirect(`/courses/${encodeURIComponent(courseSlug)}/checkout?requested=1`);
 }

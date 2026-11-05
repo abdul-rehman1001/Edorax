@@ -100,6 +100,25 @@ describe("quiz chapter state", () => {
   });
 });
 
+describe("paid course access", () => {
+  it("protects block state and offline downloads until enrollment is active", async () => {
+    await prisma.course.update({ where: { id: fx.course.id }, data: { pricingType: "PAID", priceCents: 1000 } });
+    try {
+      expect((await request(app).get(`/api/v1/blocks/${fx.quizBlock.id}/state`)).status).toBe(401);
+      await prisma.enrollment.update({ where: { id: fx.enrollment.id }, data: { lifecycle: "PAYMENT_REQUIRED" } });
+      const block = await request(app).get(`/api/v1/blocks/${fx.quizBlock.id}/state`).set(auth());
+      expect(block.status).toBe(403);
+      expect(block.body.code).toBe("payment_required");
+      expect((await request(app).get(`/api/v1/courses/${fx.course.slug}/chapters/chapter-a/download`).set(auth())).status).toBe(403);
+      await prisma.enrollment.update({ where: { id: fx.enrollment.id }, data: { lifecycle: "ACTIVE" } });
+      expect((await request(app).get(`/api/v1/blocks/${fx.quizBlock.id}/state`).set(auth())).status).toBe(200);
+    } finally {
+      await prisma.enrollment.update({ where: { id: fx.enrollment.id }, data: { lifecycle: "ACTIVE" } });
+      await prisma.course.update({ where: { id: fx.course.id }, data: { pricingType: "FREE", priceCents: 0 } });
+    }
+  });
+});
+
 describe("chapter download", () => {
   it("denies learners without access and unverified accounts", async () => {
     const anon = await request(app).get(`/api/v1/courses/${fx.course.slug}/chapters/chapter-a/download`);

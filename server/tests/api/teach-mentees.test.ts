@@ -91,6 +91,21 @@ describe("invites", () => {
     expect(invalid.status).toBe(422);
   });
 
+  it("requires payment when assigning a paid course to an existing learner", async () => {
+    const existing = await prisma.user.create({ data: { email: `paid-assignee-${fx.tag}@test.local`, role: "MENTEE", emailVerified: new Date() } });
+    createdUserIds.push(existing.id);
+    await prisma.course.update({ where: { id: fx.course.id }, data: { pricingType: "PAID", priceCents: 1000, currency: "USD" } });
+    try {
+      const res = await request(app).post(`/api/v1/teach/courses/${fx.course.id}/invites/assign`).set(mentor()).send({ emails: existing.email });
+      expect(res.status).toBe(200);
+      const enrollment = await prisma.enrollment.findUniqueOrThrow({ where: { courseId_userId: { courseId: fx.course.id, userId: existing.id } }, include: { payment: true } });
+      expect(enrollment.lifecycle).toBe("PAYMENT_REQUIRED");
+      expect(enrollment.payment).toMatchObject({ status: "PENDING", amountCents: 1000, currency: "USD" });
+    } finally {
+      await prisma.course.update({ where: { id: fx.course.id }, data: { pricingType: "FREE", priceCents: 0 } });
+    }
+  });
+
   it("creates one open invite link, reuses it, and revokes it", async () => {
     const first = await request(app).post(`/api/v1/teach/courses/${fx.course.id}/invites/link`).set(mentor());
     expect(first.status).toBe(201);

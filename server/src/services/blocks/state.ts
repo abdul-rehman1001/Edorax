@@ -15,7 +15,7 @@ import { QuizConfigSchema, type SanitizedQuizConfig } from "../../shared/blocks/
 import { applyTokens, applyTokensDeep, contentTokenValues, type ContentTokenValues } from "../../shared/lib/content-tokens.js";
 import { prisma } from "../../db/prisma.js";
 import type { Block } from "../../generated/prisma/index.js";
-import { findEnrollmentForBlockState } from "../enrollment/api-learn-access.js";
+import { findEnrollmentForBlockState, requireBlockSubmissionAccess } from "../enrollment/api-learn-access.js";
 import { loadAiInterviewInitialState } from "../ai/interview/service.js";
 import { getAiCredentialStatus } from "../ai/credentials.js";
 import { NotFoundError } from "../../utils/errors.js";
@@ -43,7 +43,7 @@ export async function loadBlockState(blockId: string, user: SessionUser | undefi
         select: {
           id: true,
           archivedAt: true,
-          course: { select: { id: true, familySlug: true, variantFamily: true, autoGradeOpenQuestions: true } },
+          course: { select: { id: true, familySlug: true, variantFamily: true, autoGradeOpenQuestions: true, pricingType: true, mentorId: true } },
         },
       },
     },
@@ -52,7 +52,17 @@ export async function loadBlockState(blockId: string, user: SessionUser | undefi
 
   // Prompts and options read in the caller's variant; anonymous previews get the fallbacks.
   const { course } = block.chapter;
-  const enrollment = user ? await findEnrollmentForBlockState(course.id, user.id) : null;
+  let enrollment = user ? await findEnrollmentForBlockState(course.id, user.id) : null;
+  if (course.pricingType === "PAID" && !enrollment) {
+    const isCourseInstructor = user && (user.role === "MENTOR" || user.role === "ADMIN") &&
+      (user.role === "ADMIN" || course.mentorId === user.id || Boolean(await prisma.courseInstructor.findUnique({
+        where: { courseId_userId: { courseId: course.id, userId: user.id } }, select: { id: true },
+      })));
+    if (!isCourseInstructor) {
+      await requireBlockSubmissionAccess(course.id, user);
+      enrollment = user ? await findEnrollmentForBlockState(course.id, user.id) : null;
+    }
+  }
   if (enrollment && !(await releaseContainsChapter(course.id, enrollment, course.familySlug, block.chapter.id))) throw new NotFoundError("Block not found");
   return withTokens(
     await blockStateFor(block, user, { autoGradeOpenQuestions: course.autoGradeOpenQuestions }),

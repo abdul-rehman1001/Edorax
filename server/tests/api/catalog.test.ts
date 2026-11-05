@@ -3,6 +3,7 @@ import request from "supertest";
 import { createApp } from "../../src/app.js";
 import { prisma } from "../../src/db/prisma.js";
 import { createCourseFixture } from "../helpers/fixtures.js";
+import { createSession } from "../../src/services/auth/session.js";
 
 const app = createApp();
 let fx: Awaited<ReturnType<typeof createCourseFixture>>;
@@ -117,6 +118,23 @@ describe("self-enrolment and checkout", () => {
     expect(payment?.status).toBe("PENDING");
     const approve = await request(app).post(`/api/v1/admin/manual-access/${enrol.body.data.enrollmentId}/approve`).set(auth());
     expect(approve.status).toBe(403);
+
+    const admin = await prisma.user.create({ data: { email: `manual-admin-${fx.tag}@test.local`, role: "ADMIN", emailVerified: new Date() } });
+    try {
+      const adminToken = (await createSession(admin.id)).sessionToken;
+      const headers = { Authorization: `Bearer ${adminToken}` };
+      const url = `/api/v1/admin/manual-access/${enrol.body.data.enrollmentId}/approve`;
+      expect((await request(app).post(url).set(headers)).status).toBe(200);
+      const after = await prisma.enrollment.findUniqueOrThrow({ where: { id: enrol.body.data.enrollmentId }, include: { payment: true } });
+      expect(after.lifecycle).toBe("ACTIVE");
+      expect(after.payment).toMatchObject({ status: "SUCCEEDED", provider: "manual" });
+      expect(await prisma.adminAuditLog.count({ where: { actorId: admin.id, targetId: after.id, action: "manual-access.approve" } })).toBe(1);
+      expect((await request(app).post(url).set(headers)).status).toBe(409);
+    } finally {
+      await prisma.adminAuditLog.deleteMany({ where: { actorId: admin.id } });
+      await prisma.session.deleteMany({ where: { userId: admin.id } });
+      await prisma.user.delete({ where: { id: admin.id } });
+    }
   });
 
   it("does not expose the old payment stub", async () => {

@@ -75,7 +75,6 @@ export async function createSelfEnrollment(
           amountCents: course.priceCents,
           currency: course.currency,
           status: "PENDING",
-          provider: "stub",
         },
       });
     }

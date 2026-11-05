@@ -16,10 +16,10 @@ export default async function CourseCheckoutPage({
   searchParams,
 }: {
   params: Promise<{ courseSlug: string }>;
-  searchParams: Promise<{ requested?: string }>;
+  searchParams: Promise<{ requested?: string; request_failed?: string }>;
 }) {
   const { courseSlug } = await params;
-  const { requested } = await searchParams;
+  const { requested, request_failed } = await searchParams;
   await requireVerifiedUser();
   const { course, enrollment, state } = await serverApiFetchOrNotFound<Checkout>(
     `/api/v1/courses/${encodeURIComponent(courseSlug)}/checkout`
@@ -53,6 +53,7 @@ export default async function CourseCheckoutPage({
         <p className="mt-4 text-sm text-muted-foreground">
           An administrator will contact you to arrange payment and grant access.
         </p>
+        {request_failed === "1" && <p role="alert" className="mt-4 text-sm text-destructive">We couldn’t send your request. Please try again or contact an administrator.</p>}
         {requested === "1" && <p className="mt-4 text-sm">Your request was sent to the administrators.</p>}
 
         {!enrollment ? (
