@@ -136,7 +136,7 @@ function PropertyField({
 }
 
 export function SettingsDrawer({
-  id, kind, cfg, tier, anchor, floating, onChange, onToggleDown, onRemove, onClose,
+  id, kind, cfg, tier, anchor, floating, armed = false, onChange, onToggleDown, onRemove, onClose,
 }: {
   id: string;
   kind: ComponentKind;
@@ -144,7 +144,10 @@ export function SettingsDrawer({
   tier?: TierLoad;
   anchor?: CSSProperties;
   floating?: boolean;
+  /** Armed to break on the next run. Break it only arms a part; Run tests is what breaks it. */
+  armed?: boolean;
   onChange: (key: string, value: number | string) => void;
+  /** Arms or disarms a working part, or restores a part that is down. */
   onToggleDown: () => void;
   onRemove: () => void;
   onClose?: () => void;
@@ -167,6 +170,10 @@ export function SettingsDrawer({
       onClose={onClose}
     >
       {part ? <p className="mb-2 text-[11px] leading-snug text-slate-300" data-testid="aws-meaning">{part.meaning}</p> : null}
+
+      {armed && !cfg.down ? (
+        <div className="lab-mono mb-2.5 rounded-[5px] border border-dashed border-red-400/70 bg-black/30 px-2 py-1.5 text-[11px] font-bold leading-snug text-red-200" data-testid="armed-note">Armed. It breaks when you press Run tests.</div>
+      ) : null}
 
       {cfg.down ? (
         <div className="lab-mono mb-2.5 rounded-[5px] bg-black/40 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-red-300">Down. Requests through it fail.</div>
@@ -200,9 +207,10 @@ export function SettingsDrawer({
       {part ? <p className="mb-2 mt-1 rounded-[5px] border border-dashed border-slate-500 px-2 py-1 text-[10.5px] leading-snug text-slate-200" data-testid="aws-remember"><b className="lab-mono text-[9px] uppercase tracking-wider text-slate-300">Remember </b>{part.remember}</p> : null}
 
       <div className="mt-2 flex gap-2">
-        <button type="button" onClick={onToggleDown} aria-pressed={Boolean(cfg.down)}
-          className={`lab-mono flex-1 rounded-[5px] border-2 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide ${CASSETTE_FOCUS} ${cfg.down ? "border-emerald-400 text-emerald-300 hover:bg-emerald-400/10" : "border-red-400 text-red-300 hover:bg-red-400/10"}`}>
-          {cfg.down ? "Restore" : "Break it"}
+        <button type="button" onClick={onToggleDown} aria-pressed={Boolean(cfg.down) || armed} data-testid="break-button"
+          title={cfg.down ? "Bring this part back up" : armed ? "Keep this part working on the next run" : "Arm this part to break on the next run. Nothing happens until you press Run tests."}
+          className={`lab-mono flex-1 rounded-[5px] border-2 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide ${CASSETTE_FOCUS} ${cfg.down ? "border-emerald-400 text-emerald-300 hover:bg-emerald-400/10" : armed ? "border-dashed border-red-400 bg-red-400/15 text-red-200 hover:bg-red-400/25" : "border-red-400 text-red-300 hover:bg-red-400/10"}`}>
+          {cfg.down ? "Restore" : armed ? "Disarm" : "Break it"}
         </button>
         {kind !== "client" ? (
           <button type="button" onClick={onRemove} aria-label={`Remove ${nameOf(kind)}`}

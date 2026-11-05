@@ -27,6 +27,8 @@ export interface NodeCardProps {
   lost?: boolean;
   /** The whole part is down. */
   down?: boolean;
+  /** Armed to break: it goes down when the learner presses Run, not before. */
+  armed?: boolean;
   /** Connected into the request path. */
   linked?: boolean;
   /** A managed service that grows by itself. */
@@ -64,8 +66,11 @@ export function NodeCard(p: NodeCardProps) {
   const { down = false, linked = true, selected = false, units = 1, load = null, lost = false, open = false } = p;
   const state = load != null ? loadState(load) : null;
   const ghost = p.ghost;
+  const armed = Boolean(p.armed) && !down;
   const border = down
     ? "border-[color:var(--lab-down)]"
+    : armed
+      ? "border-dashed border-[color:var(--lab-down)]"
     : selected
       ? "border-[color:var(--lab-accent)] ring-[3px] ring-[color:var(--lab-accent)]/25"
       : ghost?.state === "missing"
@@ -132,10 +137,11 @@ export function NodeCard(p: NodeCardProps) {
       </div>
       <div className="mt-1 flex min-h-[13px] items-center gap-1.5">
         {state?.tag ? <span title={state.hint} className="lab-mono rounded-[3px] px-1 text-[9px] font-bold tracking-wider text-white" style={{ backgroundColor: state.key === "hot" ? "var(--lab-hot-ink)" : "var(--lab-warm-ink)" }}>{state.tag}</span> : null}
+        {armed ? <span title="This part breaks when you press Run tests." className="lab-mono rounded-[3px] border border-dashed border-[color:var(--lab-down)] px-1 text-[9px] font-bold tracking-wider text-[color:var(--lab-down-ink)]" data-testid="armed-tag">ARMED</span> : null}
         {lost ? <span title="One machine is down. The others take over its work (failover)." className="lab-mono rounded-[3px] bg-[color:var(--lab-ok-ink)] px-1 text-[9px] font-bold tracking-wider text-white">1 DOWN, OTHERS COVER</span> : null}
         {ghost?.state === "missing" ? <span className="lab-mono rounded-[3px] bg-[color:var(--lab-accent)] px-1 text-[9px] font-bold tracking-wider text-[color:var(--lab-on-accent)]">MISSING IN YOUR DESIGN</span> : null}
         {ghost?.state === "matched" ? <span className="lab-mono text-[10px] font-bold text-[color:var(--lab-ok-ink)]">✓ matches yours</span> : null}
-        {!down && linked && !state?.tag && !lost && !ghost && p.note ? <span className="truncate text-[10px] text-muted-foreground" title={p.note}>{p.note}</span> : null}
+        {!down && !armed && linked && !state?.tag && !lost && !ghost && p.note ? <span className="truncate text-[10px] text-muted-foreground" title={p.note}>{p.note}</span> : null}
       </div>
       {ghost?.state === "diff" ? (
         <div className="lab-mono absolute -bottom-2.5 left-2 max-w-[160px] truncate rounded-[4px] border border-[color:var(--lab-warm)] bg-[color:var(--lab-warm-ink)] px-1.5 py-px text-[9px] font-bold text-white" title={ghost.notes.join("; ")}>
