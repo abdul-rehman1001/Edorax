@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChoiceGroup } from "./choice-group";
 import { Dot } from "@/components/brand/dot";
 import { HeroQuestion } from "./hero-question";
+import { AreaShowcase } from "./area-showcase";
 import { Wordmark } from "@/components/brand/wordmark";
 import s from "./edorax-landing.module.css";
 
@@ -19,6 +20,10 @@ function CoursesNavLink() {
   return <Link href="/catalog" style={{ color: "#0A0F2C", textDecoration: "none", fontWeight: 700, padding: "12px 0", whiteSpace: "nowrap" }}>Courses</Link>;
 }
 
+function LabsNavLink() {
+  return <Link href="/labs" className={s.navLink} style={{ color: "#0A0F2C", textDecoration: "none", fontWeight: 700, padding: "12px 0", whiteSpace: "nowrap" }}>Labs</Link>;
+}
+
 function CatalogLink() {
   return <Link href="/catalog" style={{ display: "inline-block", color: "#F6F7FB", textDecoration: "none", fontWeight: 700, padding: "14px 28px", border: "2px solid #F6F7FB" }}>Browse courses</Link>;
 }
@@ -32,10 +37,12 @@ export function EdoraxLanding() {
             <Wordmark tone="light" height={30} />
           </a>
           <nav aria-label="Main" className={s.nav} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 28px", fontSize: "16px" }}>
+            <a href="#areas" className={s.navLink} style={{ color: "#0A0F2C", textDecoration: "none", padding: "12px 0" }}>Ways to learn</a>
             <a href="#how" className={s.navLink} style={{ color: "#0A0F2C", textDecoration: "none", padding: "12px 0" }}>How it works</a>
             <a href="#dot" className={s.navLink} style={{ color: "#0A0F2C", textDecoration: "none", padding: "12px 0" }}>Meet Dot</a>
             <a href="#topics" className={s.navLink} style={{ color: "#0A0F2C", textDecoration: "none", padding: "12px 0" }}>What you can learn</a>
             <CoursesNavLink />
+            <LabsNavLink />
             <SignInLink />
             <a href="#top" className={`${s.navCta} ${s.hideSm}`} style={{ background: "#2434E0", color: "#F6F7FB", textDecoration: "none", fontWeight: "700", padding: "12px 22px" }}>Try a question</a>
           </nav>
@@ -127,7 +134,8 @@ export function EdoraxLanding() {
           </div>
         </div>
       </section>
-      <section id="dot" style={{ width: "100%" }}>
+      <AreaShowcase />
+      <section id="dot" style={{ width: "100%", borderTop: "1px solid #DCE0F2" }}>
         <div className={s.pad} style={{ maxWidth: "1200px", margin: "0 auto", padding: "88px 24px", boxSizing: "border-box" }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "24px", alignItems: "flex-end", justifyContent: "space-between" }}>
             <div style={{ flex: "1 1 460px", minWidth: "0" }}>
@@ -319,10 +327,13 @@ export function EdoraxLanding() {
             <Wordmark tone="dark" height={26} />
           </div>
           <nav aria-label="Footer" style={{ display: "flex", flexWrap: "wrap", gap: "4px 28px", fontSize: "15px" }}>
+            <a href="#areas" style={{ color: "#C9CFF0", textDecoration: "none", padding: "10px 0" }}>Ways to learn</a>
             <a href="#how" style={{ color: "#C9CFF0", textDecoration: "none", padding: "10px 0" }}>How it works</a>
             <a href="#dot" style={{ color: "#C9CFF0", textDecoration: "none", padding: "10px 0" }}>Meet Dot</a>
             <a href="#topics" style={{ color: "#C9CFF0", textDecoration: "none", padding: "10px 0" }}>What you can learn</a>
             <Link href="/catalog" style={{ color: "#C9CFF0", textDecoration: "none", padding: "10px 0" }}>Courses</Link>
+            <Link href="/labs" style={{ color: "#C9CFF0", textDecoration: "none", padding: "10px 0" }}>Labs</Link>
+            <Link href="/learn" style={{ color: "#C9CFF0", textDecoration: "none", padding: "10px 0" }}>All areas</Link>
             <span style={{ padding: "10px 0" }}>edorax.com</span>
           </nav>
         </div>

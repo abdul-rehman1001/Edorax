@@ -3,13 +3,15 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenText, CircleHelp, Home, Trophy, TrendingUp, type LucideIcon } from "lucide-react";
+import { CircleHelp, Compass, Home, Trophy, TrendingUp, type LucideIcon } from "lucide-react";
 import { WorkspaceAccountMenu } from "@/components/workspace/workspace-account-menu";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { helpUiCopy } from "@/shared/lib/help-ui-copy";
 import type { InstructorAccessView } from "@/shared/lib/instructor-access";
+import { LEARN_AREAS, areaForPath } from "@/lib/learn-areas";
+import { AREA_ICON } from "@/components/areas/area-icon";
 
 type LearnerNavItem = {
   label: string;
@@ -18,6 +20,8 @@ type LearnerNavItem = {
   icon: LucideIcon;
   active: boolean;
   count?: number;
+  /** Shown as a small "Soon" tag: the area has an overview page but is not built yet. */
+  soon?: boolean;
 };
 
 export function MenteeWorkspaceShell({
@@ -44,16 +48,18 @@ export function MenteeWorkspaceShell({
   // widest line, which made phones zoom out.
   if (pathname.startsWith("/courses/")) return <div className="w-full">{children}</div>;
 
-  const items: LearnerNavItem[] = [
-    { label: "Home", href: "/dashboard", icon: Home, active: pathname === "/dashboard" },
-    {
-      label: "Courses",
-      // Opens on every course; "My courses" is the tab next to it.
-      href: "/catalog",
-      icon: BookOpenText,
-      active: pathname === "/my-courses" || pathname.startsWith("/catalog"),
-      count: assignedCourses,
-    },
+  const area = areaForPath(pathname);
+  const home: LearnerNavItem = { label: "Home", href: "/dashboard", icon: Home, active: pathname === "/dashboard" };
+  // Every learner area, in the order of LEARN_AREAS. Courses opens on every course; "My courses" is a tab inside it.
+  const areaItems: LearnerNavItem[] = LEARN_AREAS.map((a) => ({
+    label: a.id === "voice" ? "Voice agents" : a.short,
+    href: a.href,
+    icon: AREA_ICON[a.id],
+    active: area?.id === a.id,
+    count: a.id === "courses" ? assignedCourses : undefined,
+    soon: a.status === "coming-soon",
+  }));
+  const youItems: LearnerNavItem[] = [
     { label: "Progress", href: "/progress", icon: TrendingUp, active: pathname === "/progress" },
     { label: "Leaderboard", mobileLabel: "Ranks", href: "/leaderboard", icon: Trophy, active: pathname === "/leaderboard" },
     {
@@ -64,6 +70,17 @@ export function MenteeWorkspaceShell({
       active: pathname.startsWith("/my-questions"),
       count: openHelpRequests,
     },
+  ];
+  const sidebarGroups: { label?: string; items: LearnerNavItem[] }[] = [
+    { items: [home] },
+    { label: "Learn", items: areaItems },
+    { label: "You", items: youItems },
+  ];
+  // Five slots on a phone: the areas share one "Learn" tab that opens the hub, and the hub's tabs switch between them.
+  const mobileItems: LearnerNavItem[] = [
+    home,
+    { label: "Learn", href: "/learn", icon: Compass, active: pathname === "/learn" || area !== null, count: assignedCourses },
+    ...youItems,
   ];
 
   return (
@@ -87,24 +104,33 @@ export function MenteeWorkspaceShell({
         </div>
 
         <nav aria-label="Learner workspace" className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {items.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={item.active ? "page" : undefined}
-                className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-md px-3.5 text-base outline-none transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand-yellow",
-                  item.active ? "bg-secondary font-bold text-primary" : "font-medium text-foreground hover:bg-muted"
-                )}
-              >
-                <Icon className="size-5" aria-hidden />
-                <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                {item.count ? <Count value={item.count} /> : null}
-              </Link>
-            );
-          })}
+          {sidebarGroups.map((group, gi) => (
+            <div key={group.label ?? gi} className={gi > 0 ? "pt-4" : undefined}>
+              {group.label ? <p className="px-3.5 pb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">{group.label}</p> : null}
+              <ul className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        aria-current={item.active ? "page" : undefined}
+                        className={cn(
+                          "flex min-h-11 items-center gap-3 rounded-md px-3.5 text-base outline-none transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand-yellow",
+                          item.active ? "bg-secondary font-bold text-primary" : "font-medium text-foreground hover:bg-muted"
+                        )}
+                      >
+                        <Icon className="size-5" aria-hidden />
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        {item.count ? <Count value={item.count} /> : null}
+                        {item.soon ? <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs font-bold text-muted-foreground">Soon</span> : null}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
           {pendingReviews > 0 ? (
             <p className="px-3.5 pt-3 text-sm leading-5 text-muted-foreground">
               {pendingReviews} submission{pendingReviews === 1 ? "" : "s"} awaiting review
@@ -120,7 +146,7 @@ export function MenteeWorkspaceShell({
       <main className="min-h-dvh pb-20 lg:pb-0 lg:pl-60">{children}</main>
 
       <nav aria-label="Learner workspace" className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card pb-[env(safe-area-inset-bottom)] lg:hidden">
-        {items.map((item) => {
+        {mobileItems.map((item) => {
           const Icon = item.icon;
           return (
             <Link
