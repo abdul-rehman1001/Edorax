@@ -12,19 +12,25 @@ export type Result<T> =
   | { ok: false; message: string; code: string };
 export type CatalogResult =
   | { ok: true; courses: Course[] }
-  | { ok: false; message: string };
+  | { ok: false; message: string; code?: string };
 export type EnrollmentResult = { lifecycle: 'ACTIVE' | 'PAYMENT_REQUIRED' };
 export interface DesktopAPI {
   ide?: IDEAPI;
   labs: import('./labs').LabsAPI;
   readonly platform?: string;
+  offline: {
+    status(slug: string): Promise<{ available: boolean; downloadedAt: string | null; chapters: number; pending: number }>;
+    download(slug: string): Promise<Result<{ chapters: number; locked: number }>>;
+    remove(slug: string): Promise<void>;
+    sync(): Promise<{ pending: number; message: string | null }>;
+  };
   webOrigin(): Promise<string>;
   integrityRequest(
     path: string,
     method: string,
     body?: unknown,
   ): Promise<Result<unknown>>;
-  learning: ReturnType<typeof import('../api/learning').createLearningClient>;
+  learning: Omit<ReturnType<typeof import('../api/learning').createLearningClient>, 'downloadChapter'>;
   startLearning(slug: string): Promise<Result<{ href: string | null }>>;
   enroll(courseId: string): Promise<Result<EnrollmentResult>>;
   listCourses(): Promise<CatalogResult>;

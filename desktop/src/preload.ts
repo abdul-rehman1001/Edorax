@@ -53,6 +53,12 @@ const api: DesktopAPI = {
     },
   },
   platform: process.platform,
+  offline: {
+    status: (slug) => ipcRenderer.invoke('offline:status', slug),
+    download: (slug) => ipcRenderer.invoke('offline:download', slug),
+    remove: (slug) => ipcRenderer.invoke('offline:remove', slug),
+    sync: () => ipcRenderer.invoke('offline:sync'),
+  },
   webOrigin: () => ipcRenderer.invoke('app:web-origin'),
   integrityRequest: (path, method, body) =>
     ipcRenderer.invoke('learning:integrity', path, method, body),
