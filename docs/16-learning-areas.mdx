@@ -1,6 +1,6 @@
 ---
 title: Learning areas, the platform map
-status: navigation and overview pages implemented 2026-11-05; areas 3 to 5 and two lab kinds planned
+status: navigation, overview pages and the Listen area implemented 2026-11-05; practice, puzzles, voice and two lab kinds planned
 ---
 
 # Learning areas
@@ -9,15 +9,16 @@ status: navigation and overview pages implemented 2026-11-05; areas 3 to 5 and t
 [`14-gamification.mdx`](14-gamification.mdx) (XP, streaks and opt-in leaderboards that puzzles and practice reuse),
 [`13-engagement.mdx`](13-engagement.mdx) (Dot and the mascot rules), [`../DESKTOP-PLAN.md`](../DESKTOP-PLAN.md) (the desktop app shell labs need).
 
-Edorax grows from a course reader into a learning platform with five learner areas. This doc is the
+Edorax grows from a course reader into a learning platform with six learner areas. This doc is the
 map: what each area is, where it lives in the code, what exists today, and what to build next. Each
 area section is written so one work session can pick it up on its own.
 
-## The five areas
+## The six areas
 
 | Area | Route | Status | What it is |
 |---|---|---|---|
 | Courses | `/catalog`, `/my-courses`, `/courses/...` | Open | Full courses: read, play, listen, prove. |
+| Listen | `/listen` | Open | Every course with listen-along audio, its chapters and hours. Videos later. |
 | Labs | `/labs` | Partly open | Visual labs open; guided and shell labs planned. |
 | Bite-sized practice | `/practice` | Coming soon | One topic a few minutes a day, led by questions. |
 | Puzzles | `/puzzles` | Coming soon | Several kinds of daily puzzle. |
@@ -41,11 +42,13 @@ an area, change its `status` there and replace its overview page with the real f
 **Routes.** The area pages live in the `(catalog)` route group, next to `/catalog`, so they share its
 layout: public for visitors (a simple header with Courses, Labs and All areas), and inside the learner
 workspace shell for signed-in learners. They need no API and no database, so they render even when the
-API is down.
+API is down. The one exception is `/listen`, which reads the catalog for course titles and shows an
+empty state when the API is unreachable.
 
 ```
 frontend/src/app/(catalog)/
   catalog/                 Courses (existing)
+  listen/                  Listen: courses with audio, read from the live manifests
   learn/                   The hub: every area on one page
   labs/                    Labs overview: the three kinds, open challenges, how a visual lab works
     visual/                Every visual lab, grouped
@@ -66,7 +69,7 @@ frontend/src/app/(catalog)/
   Progress, Ranks, Questions.
 - Area tabs (`components/areas/area-tabs.tsx`) sit at the top of `/learn`, `/catalog` and every area
   page, so moving between areas is one tap on a phone.
-- The landing page (`components/marketing/edorax/area-showcase.tsx`) shows all five areas with their
+- The landing page (`components/marketing/edorax/area-showcase.tsx`) shows all six areas with their
   status, and its header and footer link to Labs and All areas.
 
 **Building blocks.** `components/areas/area-page.tsx` has the hero, sections, cards, step lists, status
@@ -81,6 +84,42 @@ gate that route (and drop the slugs from `sitemap.ts`).
 
 Unchanged. See [`01-domain-model.mdx`](01-domain-model.mdx) through [`12-course-variants-and-publishing.mdx`](12-course-variants-and-publishing.mdx).
 Courses stay the spine: every other area links back to the modules it practises.
+
+## Listen (open)
+
+Code: `app/(catalog)/listen/page.tsx`, `lib/listen-library.ts` (server loader), `lib/listen-summary.ts`
+(pure helpers, tested in `tests/unit/lib/listen-summary.test.ts`).
+
+- Course list: the published catalog (`/api/v1/catalog`). Audio: each course's live manifest at
+  `https://audio.edorax.com/<courseSlug>/manifest.json`, cached for five minutes. `NARRATION_BASE_URL`
+  (https only) points it elsewhere, as it does for the reader. A course shows up as soon as its
+  manifest exists; nothing in the database changes.
+- Each course card shows its chapter count and total hours, a "Listen from the start" button and the
+  full chapter list. Links open the reader at `/courses/<course>/<chapter>#listen`, the chapter's
+  Listen player (`components/learn/chapter-audio.tsx` carries `id="listen"`).
+- Courses are grouped by catalog category, in the order of `lib/course-categories.ts`.
+- Local development reads reader audio from `public/narration`, which has only a few courses, so a
+  chapter link can open a reader without a player there. Production has every manifest.
+- Videos: shown as coming soon on the page and the landing card. When they exist they can join this
+  area (a "Watch" tab beside Listen) or become their own area; decide when the first videos ship.
+
+## Course categories
+
+The catalog has three categories (`COURSE_CATEGORIES` in `server/src/shared/domain/enums.ts`, synced
+to the frontend; display info in `frontend/src/lib/course-categories.ts`):
+
+| Value | `course.yaml` | URL param | Label |
+|---|---|---|---|
+| `TECH` | `tech` (default) | `tech` | Tech |
+| `SOFT_SKILLS` | `soft-skills` | `soft-skills` | Soft skills |
+| `CLOUD_DEVOPS` | `cloud-devops` | `cloud-devops` | Cloud and DevOps |
+
+`courseCategoryFromSource` maps the `course.yaml` value for repository publishing, `content:import`
+and ZIP imports. The Prisma enum gained `CLOUD_DEVOPS` in migration
+`20261105120000_cloud_devops_category`. No course moves on its own: a course moves when its
+`course.yaml` says `category: cloud-devops` and it is published again, or when a creator changes it in
+the course settings. The Labs area groups the Docker Compose, Kubernetes, AWS and Linux host labs
+under Cloud and DevOps (`/labs#cloud-devops`, `/labs/visual#cloud-devops`).
 
 ## Labs
 

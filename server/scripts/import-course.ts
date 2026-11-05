@@ -29,6 +29,7 @@ import { load as loadYaml } from "js-yaml";
 import { ulid } from "ulid";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Prisma, PrismaClient } from "../src/generated/prisma/index.js";
+import { courseCategoryFromSource } from "../src/shared/domain/enums.js";
 import { SEED_COURSE, SEED_USERS } from "../src/shared/lib/seed-data.js";
 import { VideoConfigSchema } from "../src/shared/blocks/video/schema.js";
 import { QuizConfigSchema, normalizeQuizConfig } from "../src/shared/blocks/quiz/schema.js";
@@ -893,7 +894,7 @@ async function upsertCourse(manifest: CourseManifest | null) {
     projectGoal: meta.projectGoal,
     difficulty: meta.difficulty,
     estimatedHours: meta.estimatedHours,
-    category: manifest?.category === "soft-skills" ? ("SOFT_SKILLS" as const) : ("TECH" as const),
+    category: courseCategoryFromSource(manifest?.category),
     coverUrl: meta.coverUrl ?? null,
     familySlug: meta.family ?? null,
     variantFamily: manifest?.variantFamily as unknown as Prisma.InputJsonValue | undefined,

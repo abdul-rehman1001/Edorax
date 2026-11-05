@@ -11,6 +11,7 @@ import { ulid } from "ulid";
 import { prisma } from "../../db/prisma.js";
 import { BadRequestError, ConflictError, TooManyRequestsError, UnprocessableError } from "../../utils/errors.js";
 import type { SessionUser } from "../../types/auth.js";
+import { courseCategoryFromSource, type CourseCategorySource } from "../../shared/domain/enums.js";
 import type { CourseFamily } from "../../shared/lib/course-tracks.js";
 import type { CourseAssistant } from "../ai/chapter-qa/assistant.js";
 import { publishCourseRelease } from "./publish-course-release.js";
@@ -63,7 +64,7 @@ export function readCourseZip(buffer: Buffer, source: CourseZipSource = "dashboa
 export type ImportPlan = {
   manifest: {
     title: string; description: string; projectGoal: string; difficulty: string;
-    estimatedHours: number; coverUrl?: string; family?: string; category?: "tech" | "soft-skills";
+    estimatedHours: number; coverUrl?: string; family?: string; category?: CourseCategorySource;
     variantFamily?: CourseFamily;
     assistant?: CourseAssistant;
     availableVariantSlugs?: string[];
@@ -140,7 +141,7 @@ async function runCourseImport(user: SessionUser, buffer: Buffer, source: Course
   if (plan.manifest.publication === "update") throw new BadRequestError("This package declares an update. Open the existing course and use Update from ZIP.");
   if (!plan.modules.length) throw new BadRequestError("A new course needs at least one module.");
   const { title, description, projectGoal, difficulty, estimatedHours, coverUrl, family, variantFamily } = plan.manifest;
-  const category = plan.manifest.category === "soft-skills" ? "SOFT_SKILLS" as const : "TECH" as const;
+  const category = courseCategoryFromSource(plan.manifest.category);
   const metadata = { title, description, projectGoal, difficulty, estimatedHours, coverUrl, category,
     familySlug: family ?? null, variantFamily: variantFamily as unknown as Prisma.InputJsonValue | undefined,
     assistant: plan.manifest.assistant as Prisma.InputJsonValue | undefined,

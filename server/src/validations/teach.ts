@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COURSE_CATEGORIES } from "../shared/domain/enums.js";
 import { isSafeAssetUrl } from "../shared/lib/asset-url.js";
 import { VARIANT_ASSIGNMENTS } from "../shared/lib/course-tracks.js";
 import { id, params } from "./common.js";
@@ -47,7 +48,7 @@ export const courseSettingsBody = z.object({
   difficulty: z.enum(["", "Beginner", "Easy", "Medium", "Advanced", "Hard"]),
   estimatedHours: z.union([z.literal(""), z.coerce.number().int().min(1).max(1000)]),
   // Optional so older clients keep working; omitted means "leave the category as it is".
-  category: z.enum(["TECH", "SOFT_SKILLS"]).optional(),
+  category: z.enum(COURSE_CATEGORIES).optional(),
   sequential: z.boolean(),
   /** Text open questions grade with the learner's OpenRouter key instead of the mentor queue. */
   autoGradeOpenQuestions: z.boolean(),

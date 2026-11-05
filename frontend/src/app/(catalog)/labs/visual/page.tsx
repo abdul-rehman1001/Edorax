@@ -22,7 +22,7 @@ export default function VisualLabsPage() {
         intro="Design on a board instead of in code. Add parts, link them, pick what to break, then press Run. Every check passes or fails in front of you, with the reason."
       />
       {groups.map((group) => (
-        <AreaSection key={group.title} id={group.title.toLowerCase().replace(/[^a-z]+/g, "-")} title={group.title} intro={group.description}>
+        <AreaSection key={group.id} id={group.id} title={group.title} intro={group.description}>
           <CardGrid>
             {group.labs.map((lab) => (
               <InfoCard

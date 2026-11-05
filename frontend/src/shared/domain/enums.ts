@@ -69,8 +69,19 @@ export type ReviewVerdict = (typeof REVIEW_VERDICTS)[number];
 export const COURSE_STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 export type CourseStatus = (typeof COURSE_STATUSES)[number];
 
-export const COURSE_CATEGORIES = ["TECH", "SOFT_SKILLS"] as const;
+export const COURSE_CATEGORIES = ["TECH", "SOFT_SKILLS", "CLOUD_DEVOPS"] as const;
 export type CourseCategory = (typeof COURSE_CATEGORIES)[number];
+
+/** How course.yaml spells each category (`category: cloud-devops`). */
+export const COURSE_CATEGORY_SOURCE_VALUES = ["tech", "soft-skills", "cloud-devops"] as const;
+export type CourseCategorySource = (typeof COURSE_CATEGORY_SOURCE_VALUES)[number];
+
+/** The stored category for a course.yaml value; anything missing or unknown is Tech. */
+export function courseCategoryFromSource(value: string | undefined | null): CourseCategory {
+  if (value === "soft-skills") return "SOFT_SKILLS";
+  if (value === "cloud-devops") return "CLOUD_DEVOPS";
+  return "TECH";
+}
 
 export const COURSE_PRICING_TYPES = ["FREE", "PAID"] as const;
 export type CoursePricingType = (typeof COURSE_PRICING_TYPES)[number];

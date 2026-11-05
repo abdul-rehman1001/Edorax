@@ -16,7 +16,9 @@ export const metadata: Metadata = {
 
 export default function LabsPage() {
   const area = areaById("labs");
-  const challenges = visualLabGroups().find((group) => group.title === "System Design challenges")?.labs ?? [];
+  const groups = visualLabGroups();
+  const challenges = groups.find((group) => group.id === "system-design-challenges")?.labs ?? [];
+  const cloud = groups.find((group) => group.id === "cloud-devops")?.labs ?? [];
   return (
     <AreaPage>
       <AreaHero
@@ -74,6 +76,29 @@ export default function LabsPage() {
         <p className="mt-5 text-base">
           <Link href="/labs/visual" className="font-bold text-primary underline-offset-4 hover:underline">
             See every visual lab, including networking and cloud
+          </Link>
+        </p>
+      </AreaSection>
+
+      <AreaSection
+        id="cloud-devops"
+        title="Open now: Cloud and DevOps"
+        intro="Containers, clusters and cloud services, on the same kind of board as the System Design labs."
+      >
+        <CardGrid columns={2}>
+          {cloud.map((lab) => (
+            <InfoCard
+              key={lab.slug}
+              title={lab.title}
+              body={lab.purpose}
+              href={`/labs/visual/${lab.slug}`}
+              cta="Open lab"
+            />
+          ))}
+        </CardGrid>
+        <p className="mt-5 text-base">
+          <Link href="/catalog?category=cloud-devops" className="font-bold text-primary underline-offset-4 hover:underline">
+            Cloud and DevOps courses
           </Link>
         </p>
       </AreaSection>

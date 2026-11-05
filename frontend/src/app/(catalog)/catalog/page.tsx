@@ -2,7 +2,7 @@ import { enrollmentLabel } from "@buildment/learning-ui/components/learn/enrollm
 import type { Metadata } from "next";
 import { SITE_SHARE_IMAGE } from "@/lib/site";
 import type { CatalogCourseSummary } from "@/shared/api/catalog";
-import type { CourseCategory } from "@/shared/domain/enums";
+import { COURSE_CATEGORIES, type CourseCategory } from "@/shared/domain/enums";
 import { getSessionUser } from "@/server/auth/guards";
 import { serverApiFetch } from "@/lib/api-server";
 import { COURSE_CATEGORY_INFO, categoryFromParam } from "@/lib/course-categories";
@@ -42,7 +42,7 @@ function CourseGrid({ courses }: { courses: CatalogCourseSummary[] }) {
 
 export const metadata: Metadata = {
   title: "Courses",
-  description: "Free courses in tech and soft skills: networking, system design, product sense, communication and more. Every lesson starts with a question.",
+  description: "Free courses in tech, soft skills, and cloud and DevOps: networking, system design, product sense, communication and more. Every lesson starts with a question.",
   alternates: { canonical: "/catalog" },
   openGraph: { title: "Courses on Edorax", url: "/catalog", images: [SITE_SHARE_IMAGE] },
 };
@@ -52,7 +52,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const { courses } = await serverApiFetch<{ courses: CatalogCourseSummary[] }>("/api/v1/catalog");
   const active = categoryFromParam((await searchParams).category);
 
-  const counts = { TECH: 0, SOFT_SKILLS: 0 } as Record<CourseCategory, number>;
+  const counts = Object.fromEntries(COURSE_CATEGORIES.map((category) => [category, 0])) as Record<CourseCategory, number>;
   for (const course of courses) counts[course.category] += 1;
 
   // "All" shows every category as its own section; a tile shows one category on its own.

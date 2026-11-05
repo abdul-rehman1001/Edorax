@@ -84,6 +84,7 @@ enum VariantAssignment {
 enum CourseCategory {
   TECH
   SOFT_SKILLS
+  CLOUD_DEVOPS
 }
 
 enum CourseInstructorRole {
