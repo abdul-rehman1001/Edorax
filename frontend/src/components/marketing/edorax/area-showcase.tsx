@@ -59,6 +59,21 @@ const VISUALS: Record<LearnAreaId, ReactNode> = {
       </div>
     </div>
   ),
+  listen: (
+    <div style={PANEL}>
+      <div style={{ fontSize: "12px", fontWeight: 700, color: COBALT, letterSpacing: "0.06em", textTransform: "uppercase" }}>Now playing</div>
+      <div style={{ fontWeight: 700, fontSize: "15px", lineHeight: 1.35 }}>Roles and expectations</div>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <span aria-hidden="true" style={{ width: "30px", height: "30px", background: COBALT, display: "grid", placeItems: "center" }}>
+          <span style={{ width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: `11px solid ${PAPER}`, marginLeft: "3px" }} />
+        </span>
+        <span aria-hidden="true" style={{ flex: 1, height: "6px", background: "#FFFFFF", position: "relative" }}>
+          <span style={{ position: "absolute", inset: 0, width: "38%", background: YELLOW }} />
+        </span>
+        <span style={{ fontSize: "13px", fontWeight: 700 }}>1.5x</span>
+      </div>
+    </div>
+  ),
   labs: (
     <div style={PANEL}>
       <svg viewBox="0 0 240 92" width="100%" role="img" aria-label="A lab board: users, a load balancer and two servers, one armed to break, and a Run button" style={{ display: "block" }}>
@@ -118,12 +133,12 @@ export function AreaShowcase() {
     <section id="areas" style={{ width: "100%" }}>
       <div className={s.pad} style={{ maxWidth: "1200px", margin: "0 auto", padding: "88px 24px", boxSizing: "border-box" }}>
         <h2 className={s.h2} style={{ margin: 0, fontFamily: UNBOUNDED, fontWeight: 700, fontSize: "36px", lineHeight: 1.15, letterSpacing: "-0.02em", maxWidth: "720px" }}>
-          More than courses. Five ways to learn.
+          More than courses. Six ways to learn.
         </h2>
         <p style={{ margin: "16px 0 0", color: MUTED, maxWidth: "600px" }}>
-          Read a course, build in a lab, practise for five minutes, solve today&apos;s puzzle, or talk a topic through. Courses and visual labs are open now.
+          Read a course, listen to it on a walk, build in a lab, practise for five minutes, solve today&apos;s puzzle, or talk a topic through. Courses, audio and visual labs are open now.
         </p>
-        <div className={s.rail} style={{ marginTop: "48px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(210px, 100%), 1fr))", gap: "16px" }}>
+        <div className={s.rail} style={{ marginTop: "48px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))", gap: "16px" }}>
           {LEARN_AREAS.map((area) => (
             <Link
               key={area.id}
@@ -143,6 +158,16 @@ export function AreaShowcase() {
                       <li key={kind.id} style={{ display: "flex", justifyContent: "space-between", gap: "8px", borderTop: `1px solid ${LINE}`, padding: "5px 0" }}>
                         <span style={{ fontWeight: 700 }}>{kind.name}</span>
                         <span style={{ color: kind.status === "live" ? COBALT : MUTED }}>{kind.status === "live" ? "Open" : "Soon"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {area.id === "listen" ? (
+                  <ul style={{ margin: "4px 0 0", padding: 0, listStyle: "none", fontSize: "14px", lineHeight: 1.5 }}>
+                    {[["Chapter audio", "Open"], ["Videos", "Soon"]].map(([name, state]) => (
+                      <li key={name} style={{ display: "flex", justifyContent: "space-between", gap: "8px", borderTop: `1px solid ${LINE}`, padding: "5px 0" }}>
+                        <span style={{ fontWeight: 700 }}>{name}</span>
+                        <span style={{ color: state === "Open" ? COBALT : MUTED }}>{state}</span>
                       </li>
                     ))}
                   </ul>

@@ -1,8 +1,9 @@
-import { BookOpenText, FlaskConical, ListChecks, Mic, Puzzle, Sparkles, Terminal, Workflow, type LucideIcon } from "lucide-react";
+import { BookOpenText, FlaskConical, Headphones, ListChecks, Mic, Puzzle, Sparkles, Terminal, Workflow, type LucideIcon } from "lucide-react";
 import type { LabKindId, LearnAreaId } from "@/lib/learn-areas";
 
 export const AREA_ICON: Record<LearnAreaId, LucideIcon> = {
   courses: BookOpenText,
+  listen: Headphones,
   labs: FlaskConical,
   practice: Sparkles,
   puzzles: Puzzle,

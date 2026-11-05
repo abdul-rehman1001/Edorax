@@ -6,7 +6,7 @@ import { AreaHero, AreaPage, AreaSection, CardGrid, InfoCard } from "@/component
 
 export const metadata: Metadata = {
   title: "Everything you can learn",
-  description: "Courses, labs, bite-sized practice, daily puzzles and voice agents. One place to learn tech and human skills.",
+  description: "Courses, audio, labs, bite-sized practice, daily puzzles and voice agents. One place to learn tech and human skills.",
   alternates: { canonical: "/learn" },
   openGraph: { title: "Everything you can learn on Edorax", url: "/learn", images: [SITE_SHARE_IMAGE] },
 };
@@ -16,12 +16,12 @@ export default function LearnHubPage() {
     <AreaPage>
       <AreaHero
         eyebrow="Edorax"
-        title="Five ways to learn, one place"
+        title="Six ways to learn, one place"
         mood="wave"
-        intro="Read a course, build in a lab, practise for a few minutes, solve today's puzzle, or talk a topic through. Pick what suits your day."
+        intro="Read a course, listen to it on the go, build in a lab, practise for a few minutes, solve today's puzzle, or talk a topic through. Pick what suits your day."
       />
 
-      <AreaSection id="areas" title="The areas" intro="Courses and visual labs are open now. The rest are on the way; each page says what is coming.">
+      <AreaSection id="areas" title="The areas" intro="Courses, Listen and visual labs are open now. The rest are on the way; each page says what is coming.">
         <CardGrid>
           {LEARN_AREAS.map((area) => {
             const Icon = AREA_ICON[area.id];
@@ -33,7 +33,7 @@ export default function LearnHubPage() {
                 href={area.href}
                 status={area.status}
                 icon={<Icon className="size-6" />}
-                cta={area.status === "coming-soon" ? "See what is coming" : `Open ${area.short.toLowerCase()}`}
+                cta={area.status === "coming-soon" ? "See what is coming" : area.id === "listen" ? "Start listening" : `Open ${area.short.toLowerCase()}`}
                 meta={area.tagline}
               />
             );

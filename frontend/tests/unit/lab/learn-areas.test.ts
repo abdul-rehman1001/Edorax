@@ -15,6 +15,7 @@ describe("learner areas", () => {
     expect(areaForPath("/my-courses")?.id).toBe("courses");
     expect(areaForPath("/labs/visual/hld-visual-chat")?.id).toBe("labs");
     expect(areaForPath("/voice")?.id).toBe("voice");
+    expect(areaForPath("/listen")?.id).toBe("listen");
     expect(areaForPath("/labsx")).toBeNull();
     expect(areaForPath("/dashboard")).toBeNull();
   });
@@ -25,6 +26,12 @@ describe("learner areas", () => {
     }
     const listed = visualLabGroups().flatMap((g) => g.labs.map((l) => l.slug));
     expect(listed.sort()).toEqual([...LAB_SLUGS].sort());
+  });
+
+  it("keeps the Docker, Kubernetes and AWS labs under Cloud and DevOps", () => {
+    const cloud = visualLabGroups().find((g) => g.id === "cloud-devops")?.labs.map((l) => l.slug) ?? [];
+    expect(cloud).toEqual(expect.arrayContaining(["docker-compose-stack", "k8s-web-app", "aws-web-tier"]));
+    expect(new Set(VISUAL_LAB_GROUPS.map((g) => g.id)).size).toBe(VISUAL_LAB_GROUPS.length);
   });
 
   it("uses no em or en dashes in learner copy", () => {

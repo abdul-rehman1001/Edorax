@@ -5,7 +5,7 @@
 
 export type AreaStatus = "live" | "partly-live" | "coming-soon";
 
-export type LearnAreaId = "courses" | "labs" | "practice" | "puzzles" | "voice";
+export type LearnAreaId = "courses" | "listen" | "labs" | "practice" | "puzzles" | "voice";
 
 export interface LearnArea {
   id: LearnAreaId;
@@ -34,6 +34,17 @@ export const LEARN_AREAS: readonly LearnArea[] = [
     summary:
       "Full courses in tech and human skills. Every chapter starts with a question, has live diagrams, can be heard word by word, and ends with a short quiz.",
     matches: ["/catalog", "/my-courses", "/courses"],
+  },
+  {
+    id: "listen",
+    name: "Listen",
+    short: "Listen",
+    href: "/listen",
+    status: "live",
+    tagline: "Courses read aloud, chapter by chapter.",
+    summary:
+      "Every course with listen-along audio in one place, with its chapters and hours. Press play in any chapter and read along, at any speed from 0.75x to 4x. Videos come next.",
+    matches: ["/listen"],
   },
   {
     id: "labs",
@@ -139,24 +150,28 @@ export const LAB_KINDS: readonly LabKind[] = [
   },
 ];
 
-/** Visual labs grouped for the catalogue. Slugs come from the lab registry. */
-export const VISUAL_LAB_GROUPS: readonly { title: string; description: string; prefix: (slug: string) => boolean }[] = [
+/** Visual labs grouped for the catalogue. Slugs come from the lab registry; `id` is the anchor on /labs/visual. */
+export const VISUAL_LAB_GROUPS: readonly { id: string; title: string; description: string; prefix: (slug: string) => boolean }[] = [
   {
+    id: "system-design-challenges",
     title: "System Design challenges",
     description: "Design a real product from parts, then survive peak traffic and failures inside a budget.",
     prefix: (slug) => slug.startsWith("hld-visual-"),
   },
   {
+    id: "cloud-devops",
+    title: "Cloud and DevOps",
+    description: "Docker Compose, Kubernetes, AWS and a single Linux host, on the same kind of board. They go with the Cloud and DevOps courses.",
+    prefix: (slug) => ["docker-compose-stack", "k8s-web-app", "aws-web-tier", "linux-single-host"].includes(slug),
+  },
+  {
+    id: "system-design-ideas",
     title: "System Design ideas",
     description: "Smaller boards for one idea at a time: where waiting explodes, three tiers, a cache.",
     prefix: (slug) => /^hld-m\d+-/.test(slug),
   },
   {
-    title: "Cloud and infrastructure",
-    description: "The same kind of board for AWS, Kubernetes, Compose and a single Linux host.",
-    prefix: (slug) => ["aws-web-tier", "k8s-web-app", "docker-compose-stack", "linux-single-host"].includes(slug),
-  },
-  {
+    id: "networking",
     title: "Networking",
     description: "Explore, plan, build and fix small networks. Every answer is checked.",
     prefix: (slug) => slug.startsWith("net-"),

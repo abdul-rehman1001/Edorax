@@ -14,7 +14,8 @@ import { isSafeAssetUrl } from "@/shared/lib/asset-url";
 export type ChapterNarration = { src: string; minutes: number; bytes: number };
 
 const LOCAL_BASE = "/narration";
-const PRODUCTION_BASE = "https://audio.edorax.com";
+export const NARRATION_PRODUCTION_BASE = "https://audio.edorax.com";
+const PRODUCTION_BASE = NARRATION_PRODUCTION_BASE;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const CHAPTER_SLUG = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 const AUDIO_FILE = /^[\w.-]+\.mp3$/;
