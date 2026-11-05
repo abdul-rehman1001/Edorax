@@ -53,14 +53,13 @@ export async function loadBlockState(blockId: string, user: SessionUser | undefi
   // Prompts and options read in the caller's variant; anonymous previews get the fallbacks.
   const { course } = block.chapter;
   let enrollment = user ? await findEnrollmentForBlockState(course.id, user.id) : null;
-  if (course.pricingType === "PAID" && !enrollment) {
+  if (course.pricingType === "PAID") {
     const isCourseInstructor = user && (user.role === "MENTOR" || user.role === "ADMIN") &&
       (user.role === "ADMIN" || course.mentorId === user.id || Boolean(await prisma.courseInstructor.findUnique({
         where: { courseId_userId: { courseId: course.id, userId: user.id } }, select: { id: true },
       })));
     if (!isCourseInstructor) {
-      await requireBlockSubmissionAccess(course.id, user);
-      enrollment = user ? await findEnrollmentForBlockState(course.id, user.id) : null;
+      enrollment = await requireBlockSubmissionAccess(course.id, user);
     }
   }
   if (enrollment && !(await releaseContainsChapter(course.id, enrollment, course.familySlug, block.chapter.id))) throw new NotFoundError("Block not found");
