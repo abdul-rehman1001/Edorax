@@ -51,7 +51,7 @@ export async function selfEnrollInCourseAction(formData: FormData): Promise<void
       if (error.code === ENROLLMENT_ERROR_CODES.PAYMENT_PENDING) redirect(`/courses/${courseSlug}/checkout`);
       if (error.code === ENROLLMENT_ERROR_CODES.ALREADY_ENROLLED) redirect(returnTo ?? `/courses/${courseSlug}`);
       if ([ENROLLMENT_ERROR_CODES.COUPON_INVALID, ENROLLMENT_ERROR_CODES.COUPON_EXHAUSTED, ENROLLMENT_ERROR_CODES.COUPON_NOT_APPLICABLE].some((code) => code === error.code)) {
-        redirect(`/catalog/${encodeURIComponent(courseSlug)}?coupon_error=${encodeURIComponent(error.code ?? "invalid")}`);
+        redirect(`/courses/${encodeURIComponent(courseSlug)}/checkout?coupon_error=${encodeURIComponent(error.code ?? "invalid")}`);
       }
       throw new Error(error.message);
     }

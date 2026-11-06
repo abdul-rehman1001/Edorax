@@ -709,7 +709,7 @@ model OrganizationCouponPool {
   @@index([organizationId, code])
 }
 
-/// Instructor-created, course-specific 100% coupons. Codes can be shared with learners.
+/// Instructor-created, course-specific percentage coupons. Codes can be shared with learners.
 model InstructorCoupon {
   id              String       @id @default(cuid())
   courseId        String
@@ -718,6 +718,7 @@ model InstructorCoupon {
   createdBy       User         @relation("InstructorCouponCreator", fields: [createdById], references: [id], onDelete: Cascade)
   code            String       @unique
   label           String
+  percentOff      Int          @default(100)
   maxRedemptions  Int
   redemptionCount Int          @default(0)
   active          Boolean      @default(true)
@@ -737,6 +738,7 @@ model InstructorCouponRedemption {
   enrollment  Enrollment      @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   userId      String
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  percentOff  Int
   redeemedAt  DateTime        @default(now())
 
   @@index([couponId, redeemedAt])

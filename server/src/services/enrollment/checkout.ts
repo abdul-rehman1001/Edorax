@@ -13,12 +13,12 @@ export async function loadCheckout(courseSlug: string, userId: string): Promise<
 
   const enrollment = await prisma.enrollment.findUnique({
     where: { courseId_userId: { courseId: course.id, userId } },
-    select: { id: true, lifecycle: true },
+    select: { id: true, lifecycle: true, payment: { select: { amountCents: true } } },
   });
   if (!enrollment) return { course: courseFields, enrollment: null, state: "no_enrollment" };
   if (enrollmentGrantsContentAccess(enrollment.lifecycle)) {
     return { course: courseFields, enrollment, state: "already_paid" };
   }
   if (enrollment.lifecycle !== "PAYMENT_REQUIRED") throw new NotFoundError("Enrollment is not awaiting payment");
-  return { course: courseFields, enrollment, state: "payment_required" };
+  return { course: { ...courseFields, priceCents: enrollment.payment?.amountCents ?? course.priceCents }, enrollment, state: "payment_required" };
 }

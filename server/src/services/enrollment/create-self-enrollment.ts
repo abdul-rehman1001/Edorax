@@ -47,9 +47,10 @@ export async function createSelfEnrollment(
   }
 
   const couponCode = input.couponCode?.trim().toUpperCase();
-  const lifecycle = couponCode ? "ACTIVE" : lifecycleForSignedInEnrollment(course.pricingType);
+  const defaultLifecycle = lifecycleForSignedInEnrollment(course.pricingType);
 
   const result = await db.$transaction(async (tx) => {
+    let lifecycle = defaultLifecycle;
     const existing = await tx.enrollment.findUnique({
       where: { courseId_userId: { courseId: course.id, userId: input.userId } },
       include: { payment: true },
@@ -61,7 +62,8 @@ export async function createSelfEnrollment(
       throw new SelfEnrollmentError("ALREADY_ENROLLED", "You are already enrolled in this course.");
     }
 
-    let coupon: { id: string } | null = null;
+    let coupon: { id: string; percentOff: number } | null = null;
+    let amountCents = course.priceCents;
     if (couponCode) {
       if (course.pricingType !== "PAID") throw new SelfEnrollmentError("COUPON_NOT_APPLICABLE", "Coupons are only available for paid courses.");
       const found = await tx.instructorCoupon.findUnique({ where: { code: couponCode } });
@@ -73,14 +75,22 @@ export async function createSelfEnrollment(
         data: { redemptionCount: { increment: 1 } },
       });
       if (!reserved.count) throw new SelfEnrollmentError("COUPON_EXHAUSTED", "This coupon has no redemptions remaining.");
-      coupon = { id: found.id };
+      coupon = { id: found.id, percentOff: found.percentOff };
+      amountCents = Math.round(course.priceCents * (100 - found.percentOff) / 100);
+      lifecycle = found.percentOff === 100 ? "ACTIVE" : "PAYMENT_REQUIRED";
     }
 
     if (existing) {
-      await tx.enrollment.update({ where: { id: existing.id }, data: { lifecycle: "ACTIVE", status: "IN_PROGRESS", startedAt: existing.startedAt ?? new Date() } });
-      if (existing.payment) await tx.payment.update({ where: { enrollmentId: existing.id }, data: { amountCents: 0, status: "SUCCEEDED", provider: "coupon", paidAt: new Date() } });
-      if (coupon) await tx.instructorCouponRedemption.create({ data: { couponId: coupon.id, enrollmentId: existing.id, userId: input.userId } });
-      return { row: existing, created: false, couponApplied: Boolean(coupon) };
+      const accessGranted = lifecycle === "ACTIVE";
+      const row = await tx.enrollment.update({ where: { id: existing.id }, data: {
+        lifecycle, status: accessGranted ? "IN_PROGRESS" : "ASSIGNED", startedAt: accessGranted ? existing.startedAt ?? new Date() : null,
+      } });
+      if (existing.payment) await tx.payment.update({ where: { enrollmentId: existing.id }, data: accessGranted
+        ? { amountCents: 0, status: "SUCCEEDED", provider: "coupon", paidAt: new Date() }
+        : { amountCents, status: "PENDING", provider: null, paidAt: null } });
+      else if (!accessGranted) await tx.payment.create({ data: { enrollmentId: existing.id, amountCents, currency: course.currency, status: "PENDING" } });
+      if (coupon) await tx.instructorCouponRedemption.create({ data: { couponId: coupon.id, enrollmentId: existing.id, userId: input.userId, percentOff: coupon.percentOff } });
+      return { row, lifecycle, created: false, couponApplied: Boolean(coupon) };
     }
 
     const assignment = await assignmentForNewEnrollment(tx, course.id);
@@ -100,22 +110,22 @@ export async function createSelfEnrollment(
       await tx.payment.create({
         data: {
           enrollmentId: row.id,
-          amountCents: course.priceCents,
+          amountCents,
           currency: course.currency,
           status: "PENDING",
         },
       });
     }
 
-    if (coupon) await tx.instructorCouponRedemption.create({ data: { couponId: coupon.id, enrollmentId: row.id, userId: input.userId } });
+    if (coupon) await tx.instructorCouponRedemption.create({ data: { couponId: coupon.id, enrollmentId: row.id, userId: input.userId, percentOff: coupon.percentOff } });
 
-    return { row, created: true, couponApplied: Boolean(coupon) };
+    return { row, lifecycle, created: true, couponApplied: Boolean(coupon) };
   });
 
   return {
     enrollmentId: result.row.id,
     courseSlug: course.slug,
-    lifecycle,
+    lifecycle: result.lifecycle,
     created: result.created,
     couponApplied: result.couponApplied,
   };

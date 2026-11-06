@@ -12,7 +12,7 @@ export async function listCourseCoupons(user: SessionUser, courseSlug: string) {
   const course = await requireCourseBySlug(user, courseSlug);
   const coupons = await prisma.instructorCoupon.findMany({
     where: { courseId: course.id }, orderBy: { createdAt: "desc" },
-    select: { id: true, code: true, label: true, maxRedemptions: true, redemptionCount: true, active: true, expiresAt: true, createdAt: true },
+    select: { id: true, code: true, label: true, percentOff: true, maxRedemptions: true, redemptionCount: true, active: true, expiresAt: true, createdAt: true },
   });
   return coupons.map((coupon) => ({ ...coupon, remaining: Math.max(0, coupon.maxRedemptions - coupon.redemptionCount), expiresAt: coupon.expiresAt?.toISOString() ?? null, createdAt: coupon.createdAt.toISOString() }));
 }
@@ -25,7 +25,7 @@ export async function createCourseCoupon(user: SessionUser, courseId: string, in
   const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
   if (expiresAt && expiresAt <= new Date()) throw new UnprocessableError("The expiration must be in the future.", "VALIDATION_ERROR");
   try {
-    const coupon = await prisma.instructorCoupon.create({ data: { courseId, createdById: user.id, code, label: input.label, maxRedemptions: input.maxRedemptions, expiresAt } });
+    const coupon = await prisma.instructorCoupon.create({ data: { courseId, createdById: user.id, code, label: input.label, percentOff: input.percentOff, maxRedemptions: input.maxRedemptions, expiresAt } });
     return { ...coupon, remaining: coupon.maxRedemptions, expiresAt: coupon.expiresAt?.toISOString() ?? null, createdAt: coupon.createdAt.toISOString() };
   } catch (error) {
     if ((error as { code?: string }).code === "P2002") throw new ConflictError("That coupon code is already in use.", "COUPON_CODE_TAKEN");

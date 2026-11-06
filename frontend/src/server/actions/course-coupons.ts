@@ -4,11 +4,11 @@ import { revalidatePath } from "next/cache";
 import { teachCall } from "./teach-call";
 
 export type CourseCouponRow = {
-  id: string; code: string; label: string; maxRedemptions: number; redemptionCount: number;
+  id: string; code: string; label: string; percentOff: number; maxRedemptions: number; redemptionCount: number;
   remaining: number; active: boolean; expiresAt: string | null; createdAt: string;
 };
 
-export async function createCourseCoupon(input: { courseId: string; courseSlug: string; code: string; label: string; maxRedemptions: number; expiresAt: string | null }) {
+export async function createCourseCoupon(input: { courseId: string; courseSlug: string; code: string; label: string; percentOff: number; maxRedemptions: number; expiresAt: string | null }) {
   const { courseId, courseSlug, ...body } = input;
   const result = await teachCall<CourseCouponRow>(`/api/v1/teach/courses/${encodeURIComponent(courseId)}/coupons`, { method: "POST", json: body });
   if (!result.ok) return result;

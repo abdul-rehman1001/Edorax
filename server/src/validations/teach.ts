@@ -6,11 +6,11 @@ import { id, params } from "./common.js";
 export const courseIdParams = params("courseId");
 export const approveCourseZipUpdateBody = z.object({ previewId: id, confirm: z.literal(true) });
 export const courseSlugParams = params("courseSlug");
-export const couponIdParams = params("couponId");
 export const courseCouponParams = z.object({ courseId: id, couponId: id });
 export const createInstructorCouponBody = z.object({
   code: z.string().trim().min(3).max(32).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/),
   label: z.string().trim().min(1).max(80),
+  percentOff: z.coerce.number().int().min(1).max(100),
   maxRedemptions: z.coerce.number().int().min(1).max(10000),
   expiresAt: z.string().datetime().nullable().optional(),
 });
