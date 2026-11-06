@@ -123,6 +123,20 @@ const schema = z.object({
     .optional()
     .transform((value) => value !== "false"),
 
+  /**
+   * The API decides mascot reactions for every app (docs/13-engagement.mdx). On unless "false",
+   * which sends none, so each app falls back to deciding with the rules it shipped with.
+   */
+  MASCOT_SERVER_REACTIONS: z
+    .string()
+    .optional()
+    .transform((value) => value !== "false"),
+  /** Origin that serves /brand/dot/voice/*.mp3 for every app. Defaults to APP_URL. */
+  MASCOT_ASSET_BASE_URL: optionalString.refine(
+    (value) => value === undefined || URL.canParse(value),
+    "MASCOT_ASSET_BASE_URL must be a full URL, for example https://audio.edorax.com"
+  ),
+
   /** Local testing only: e2e suites sign up repeatedly from one IP. Never set in production. */
   DISABLE_RATE_LIMITS: z
     .string()
@@ -143,6 +157,7 @@ function loadEnv(): Env {
   return {
     ...parsed.data,
     APP_URL: parsed.data.APP_URL.replace(/\/$/, ""),
+    MASCOT_ASSET_BASE_URL: parsed.data.MASCOT_ASSET_BASE_URL?.replace(/\/$/, ""),
   };
 }
 

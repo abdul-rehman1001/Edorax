@@ -18,6 +18,7 @@ import { settleWeeklyGoal } from "../gamification/habit.js";
 import { utcDateOnly } from "../progress/heartbeat.js";
 import { loadLearnerHabit } from "../progress/learner-habit.js";
 import { latestQuizAttempt } from "./quiz-facts.js";
+import { withReaction } from "./reactions.js";
 
 export { summarizeQuizAttempt } from "./quiz-facts.js";
 
@@ -193,7 +194,7 @@ const courseCompleted = (courseId: string): Draft => ({
 
 /**
  * Checks one reported moment against the database, stores it, and returns it with what it caused:
- * the events it led to (a weekly goal met, a new level) and the XP it earned.
+ * the events it led to (a weekly goal met, a new level), the XP it earned and the mascot's reaction.
  */
 export async function trackEngagementEvent(
   userId: string,
@@ -201,7 +202,8 @@ export async function trackEngagementEvent(
   now: Date = new Date()
 ): Promise<TrackEventResult> {
   const events = await recordReportedEvent(userId, body, now);
-  return addGamification(userId, body.platform, events, now);
+  const result = await addGamification(userId, body.platform, events, now);
+  return withReaction(userId, result, { reading: body.reading, area: body.area }, now);
 }
 
 /** Reported moments that can move the weekly goal (chapters done, or a new study session). */

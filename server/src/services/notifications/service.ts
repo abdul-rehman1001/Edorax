@@ -15,6 +15,7 @@ import {
   type NotificationReadEvent,
   type NotificationType,
 } from "../../shared/api/notifications.js";
+import { reactionForNotification } from "../engagement/reactions.js";
 import { NOTIFICATION_CHANNELS, channelEnabled } from "./config.js";
 import { emitToUser } from "./realtime.js";
 import { signalEmailQueued, withPreferencesFooter, type EmailContent } from "./email-outbox.js";
@@ -172,7 +173,12 @@ export async function pushNotifications(rows: Notification[]): Promise<void> {
   for (const [userId, userRows] of byUser) {
     const count = await unreadCount(userId);
     for (const row of userRows) {
-      const event: NotificationNewEvent = { notification: toNotificationItem(row), unreadCount: count };
+      const notification = toNotificationItem(row);
+      const reaction = reactionForNotification(notification);
+      const event: NotificationNewEvent = {
+        notification: reaction ? { ...notification, reaction } : notification,
+        unreadCount: count,
+      };
       emitToUser(userId, REALTIME_EVENTS.notificationNew, event);
     }
   }

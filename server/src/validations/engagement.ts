@@ -4,6 +4,7 @@ import {
   ENGAGEMENT_EVENT_TYPES,
   ENGAGEMENT_PLATFORMS,
 } from "../shared/api/engagement.js";
+import { PAGE_AREAS } from "../shared/engagement/mascots.js";
 import { id } from "./common.js";
 
 export const trackEventBody = z
@@ -12,6 +13,8 @@ export const trackEventBody = z
     courseId: id.max(64).optional(),
     chapterId: id.max(64).optional(),
     platform: z.enum(ENGAGEMENT_PLATFORMS).default("web"),
+    reading: z.boolean().optional(),
+    area: z.enum(PAGE_AREAS).optional(),
   })
   .superRefine((body, ctx) => {
     const target = ENGAGEMENT_EVENT_TARGET[body.type];
