@@ -60,11 +60,14 @@ export async function selfEnrollInCourseAction(formData: FormData): Promise<void
 
   refreshLearnerPages();
   if (result.lifecycle === "PAYMENT_REQUIRED") {
+    let emailSent = false;
     try {
-      await serverApiFetch(`/api/v1/enrollments/${encodeURIComponent(result.enrollmentId)}/request-access`, { method: "POST" });
+      const request = await serverApiFetch<{ emailSent: boolean }>(`/api/v1/enrollments/${encodeURIComponent(result.enrollmentId)}/request-access`, { method: "POST" });
+      emailSent = request.emailSent;
     } catch {
       redirect(`/courses/${result.courseSlug}/checkout?request_failed=1`);
     }
+    if (!emailSent) redirect(`/courses/${result.courseSlug}/checkout?requested=1&email_unavailable=1`);
     redirect(`/courses/${result.courseSlug}/checkout?requested=1`);
   }
   await leaveEnrollmentForMascot(courseId);
@@ -76,10 +79,13 @@ export async function requestCourseAccessAction(formData: FormData): Promise<voi
   const enrollmentId = String(formData.get("enrollmentId") ?? "");
   const courseSlug = String(formData.get("courseSlug") ?? "");
   if (!enrollmentId || !courseSlug) throw new Error("Missing enrollment.");
+  let emailSent = false;
   try {
-    await serverApiFetch(`/api/v1/enrollments/${encodeURIComponent(enrollmentId)}/request-access`, { method: "POST" });
+    const request = await serverApiFetch<{ emailSent: boolean }>(`/api/v1/enrollments/${encodeURIComponent(enrollmentId)}/request-access`, { method: "POST" });
+    emailSent = request.emailSent;
   } catch {
     redirect(`/courses/${encodeURIComponent(courseSlug)}/checkout?request_failed=1`);
   }
+  if (!emailSent) redirect(`/courses/${encodeURIComponent(courseSlug)}/checkout?requested=1&email_unavailable=1`);
   redirect(`/courses/${encodeURIComponent(courseSlug)}/checkout?requested=1`);
 }

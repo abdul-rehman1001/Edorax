@@ -17,10 +17,10 @@ export default async function CourseCheckoutPage({
   searchParams,
 }: {
   params: Promise<{ courseSlug: string }>;
-  searchParams: Promise<{ requested?: string; request_failed?: string; coupon_error?: string }>;
+  searchParams: Promise<{ requested?: string; request_failed?: string; email_unavailable?: string; coupon_error?: string }>;
 }) {
   const { courseSlug } = await params;
-  const { requested, request_failed, coupon_error: couponError } = await searchParams;
+  const { requested, request_failed, email_unavailable: emailUnavailable, coupon_error: couponError } = await searchParams;
   await requireVerifiedUser();
   const { course, enrollment, state, automaticDiscount } = await serverApiFetchOrNotFound<Checkout>(
     `/api/v1/courses/${encodeURIComponent(courseSlug)}/checkout`
@@ -69,7 +69,7 @@ export default async function CourseCheckoutPage({
             <span className="text-2xl font-semibold tabular-nums">{priceLabel}</span>
           </div>
           {request_failed === "1" && <p role="alert" className="mt-4 text-sm text-destructive">We couldn’t send your request. Please try again or contact an administrator.</p>}
-          {requested === "1" && <p role="status" className="mt-4 text-sm">Your request was sent to the administrators.</p>}
+          {requested === "1" && <p role="status" className="mt-4 text-sm">{emailUnavailable === "1" ? "Your request is recorded for administrator review. Email notification is unavailable right now." : "Your request was sent to the administrators."}</p>}
           {!enrollment || automaticDiscount ? (
             <form action={selfEnrollInCourseAction} className="mt-5">
               <input type="hidden" name="courseId" value={course.id} />
