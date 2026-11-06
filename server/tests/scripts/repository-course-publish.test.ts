@@ -108,9 +108,9 @@ describe("repository course publishing selection", () => {
     const stale = { title: "Old preview title", description: "A focused preview", projectGoal: "Learn a skill",
       difficulty: "Advanced", estimatedHours: 5, category: "TECH" as const, coverUrl: "https://example.com/cover.png", assistant: null };
     expect(courseDetailsUpdate(manifest, stale)).toEqual({
-      title: "Example", description: "Example course", difficulty: "Beginner", estimatedHours: 2, category: "SOFT_SKILLS",
+      title: "Example", description: "Example course", difficulty: "Beginner", estimatedHours: 2, category: "SOFT_SKILLS", tags: [],
     });
-    const current = { ...stale, title: "Example", description: "Example course", difficulty: "Beginner", estimatedHours: 2, category: "SOFT_SKILLS" as const };
+    const current = { ...stale, title: "Example", description: "Example course", difficulty: "Beginner", estimatedHours: 2, category: "SOFT_SKILLS" as const, tags: [] };
     expect(courseDetailsUpdate(manifest, current)).toBeNull();
   });
 
@@ -121,7 +121,7 @@ describe("repository course publishing selection", () => {
     course(root, "ready", "repositoryPublish: true\n");
     const manifest = selectedPackages(root)[0]!.manifest;
     const base = { title: "Example", description: "Example course", projectGoal: "Learn a skill", difficulty: "Beginner",
-      estimatedHours: 2, category: "TECH" as const, coverUrl: null };
+      estimatedHours: 2, category: "TECH" as const, coverUrl: null, tags: [] };
     const withBlock = { ...manifest, assistant: { effort: "medium" as const, guidance: "Be precise." } };
     expect(courseDetailsUpdate(withBlock, { ...base, assistant: null })).toEqual({ assistant: { effort: "medium", guidance: "Be precise." } });
     expect(courseDetailsUpdate(withBlock, { ...base, assistant: { effort: "medium", guidance: "Be precise." } })).toBeNull();

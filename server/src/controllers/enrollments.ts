@@ -18,6 +18,5 @@ export async function checkout(req: Request, res: Response) {
 
 // POST /api/v1/enrollments/:enrollmentId/request-access
 export async function requestAccess(req: Request, res: Response) {
-  await requestManualAccess(req.params.enrollmentId as string, req.user!.id);
-  ok(res, { requested: true });
+  ok(res, await requestManualAccess(req.params.enrollmentId as string, req.user!.id));
 }

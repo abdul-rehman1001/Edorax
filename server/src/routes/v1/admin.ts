@@ -1,6 +1,6 @@
 import { prisma } from "../../db/prisma.js";
 import { approveManualAccess, listManualInstructorPayouts, markManualInstructorPayoutPaid } from "../../services/enrollment/manual-access.js";
-import { ok } from "../../utils/responses.js";
+import { created, noContent, ok } from "../../utils/responses.js";
 import { enrollmentParams } from "../../validations/enrollments.js";
 import { Router } from "express";
 import { userRateLimit } from "../../middlewares/rate-limit.js";
@@ -20,6 +20,9 @@ import {
   bulkSuspendBody,
   courseIdParams,
   courseStatusBody,
+  createDiscountCampaignBody,
+  discountCampaignParams,
+  discountCampaignActiveBody,
   couponPoolActiveBody,
   couponPoolParams,
   createCouponPoolBody,
@@ -67,6 +70,19 @@ router.post("/manual-payouts/:enrollmentId/paid", validateParams(enrollmentParam
 router.get("/overview", admin.getOverview);
 router.get("/metrics", validateQuery(metricsQuery), admin.getMetrics);
 router.get("/courses", validateQuery(listCoursesQuery), admin.listCourses);
+router.get("/discount-campaigns", async (_req, res) => {
+  const discounts = await import("../../services/admin/discount-campaigns.js");
+  ok(res, await discounts.listDiscountCampaigns());
+});
+router.post("/discount-campaigns", validateBody(createDiscountCampaignBody), async (req, res) => {
+  const discounts = await import("../../services/admin/discount-campaigns.js");
+  created(res, await discounts.createDiscountCampaign(req.user!, req.body));
+});
+router.patch("/discount-campaigns/:campaignId", validate({ params: discountCampaignParams, body: discountCampaignActiveBody }), async (req, res) => {
+  const discounts = await import("../../services/admin/discount-campaigns.js");
+  await discounts.setDiscountCampaignActive(req.user!, req.params.campaignId as string, req.body.active);
+  noContent(res);
+});
 router.post("/courses/:courseId/status", validate({ params: courseIdParams, body: courseStatusBody }), admin.setCourseStatus);
 router.get("/courses/export", validateQuery(listCoursesQuery), admin.exportCoursesCsv);
 

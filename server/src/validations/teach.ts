@@ -8,12 +8,13 @@ export const approveCourseZipUpdateBody = z.object({ previewId: id, confirm: z.l
 export const courseSlugParams = params("courseSlug");
 export const courseCouponParams = z.object({ courseId: id, couponId: id });
 export const createInstructorCouponBody = z.object({
-  code: z.string().trim().min(3).max(32).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/),
+  code: z.string().trim().min(3).max(32).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/).nullable().optional(),
   label: z.string().trim().min(1).max(80),
   percentOff: z.coerce.number().int().min(1).max(100),
   maxRedemptions: z.coerce.number().int().min(1).max(10000),
   expiresAt: z.string().datetime().nullable().optional(),
-});
+  autoApply: z.boolean().default(false),
+}).refine((body) => body.code || body.autoApply, { message: "Enter a coupon code or enable automatic discount." });
 export type CreateInstructorCouponBody = z.infer<typeof createInstructorCouponBody>;
 export const instructorCouponActiveBody = z.object({ active: z.boolean() });
 export const moduleIdParams = params("moduleId");
@@ -58,6 +59,8 @@ export const courseSettingsBody = z.object({
   estimatedHours: z.union([z.literal(""), z.coerce.number().int().min(1).max(1000)]),
   // Optional so older clients keep working; omitted means "leave the category as it is".
   category: z.enum(["TECH", "SOFT_SKILLS"]).optional(),
+  subcategory: z.string().trim().max(80).nullable().optional(),
+  tags: z.array(z.string().trim().min(1).max(32)).max(12).optional(),
   sequential: z.boolean(),
   /** Text open questions grade with the learner's OpenRouter key instead of the mentor queue. */
   autoGradeOpenQuestions: z.boolean(),

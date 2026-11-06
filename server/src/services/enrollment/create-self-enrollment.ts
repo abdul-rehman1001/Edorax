@@ -55,29 +55,53 @@ export async function createSelfEnrollment(
       where: { courseId_userId: { courseId: course.id, userId: input.userId } },
       include: { payment: true },
     });
-    if (existing && (!couponCode || existing.lifecycle !== "PAYMENT_REQUIRED")) {
-      if (existing.lifecycle === "PAYMENT_REQUIRED") {
-        throw new SelfEnrollmentError("PAYMENT_PENDING", "Complete payment or apply a coupon to access this course.");
-      }
+    if (existing && existing.lifecycle !== "PAYMENT_REQUIRED") {
       throw new SelfEnrollmentError("ALREADY_ENROLLED", "You are already enrolled in this course.");
+    }
+    if (existing && await tx.instructorCouponRedemption.findUnique({ where: { enrollmentId: existing.id }, select: { id: true } })) {
+      throw new SelfEnrollmentError("PAYMENT_PENDING", "A discount has already been applied to this enrollment.");
     }
 
     let coupon: { id: string; percentOff: number } | null = null;
     let amountCents = course.priceCents;
-    if (couponCode) {
+    if (couponCode || course.pricingType === "PAID") {
       if (course.pricingType !== "PAID") throw new SelfEnrollmentError("COUPON_NOT_APPLICABLE", "Coupons are only available for paid courses.");
-      const found = await tx.instructorCoupon.findUnique({ where: { code: couponCode } });
-      if (!found || found.courseId !== course.id || !found.active || (found.expiresAt && found.expiresAt <= new Date())) {
-        throw new SelfEnrollmentError("COUPON_INVALID", "This coupon is invalid or expired.");
+      const offers = couponCode
+        ? []
+        : await tx.instructorCoupon.findMany({
+            where: { courseId: course.id, active: true, autoApply: true, redemptionCount: { lt: 1000000 }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+            include: { campaign: true },
+            orderBy: [{ percentOff: "desc" }, { createdAt: "asc" }],
+          });
+      const found = couponCode
+        ? await tx.instructorCoupon.findUnique({ where: { courseId_code: { courseId: course.id, code: couponCode } }, include: { campaign: true } })
+        : offers.find((candidate) => candidate.redemptionCount < candidate.maxRedemptions && (!candidate.campaign || (candidate.campaign.active && candidate.campaign.redemptionCount < candidate.campaign.maxRedemptions && (!candidate.campaign.expiresAt || candidate.campaign.expiresAt > new Date())))) ?? null;
+      if (!couponCode && !found) {
+        // No automatic offer applies; continue at the regular course price.
+      } else {
+        if (!found || !found.active || (found.expiresAt && found.expiresAt <= new Date()) || (found.campaignId && (!found.campaign?.active || found.campaign.redemptionCount >= found.campaign.maxRedemptions || (found.campaign.expiresAt && found.campaign.expiresAt <= new Date())))) {
+          throw new SelfEnrollmentError("COUPON_INVALID", "This coupon is invalid or expired.");
+        }
+        if (found.campaignId) {
+          const campaignReserved = await tx.courseDiscountCampaign.updateMany({
+            where: { id: found.campaignId, active: true, redemptionCount: { lt: found.campaign!.maxRedemptions }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+            data: { redemptionCount: { increment: 1 } },
+          });
+          if (!campaignReserved.count) throw new SelfEnrollmentError("COUPON_EXHAUSTED", "This discount has no redemptions remaining.");
+        }
+        const reserved = await tx.instructorCoupon.updateMany({
+          where: { id: found.id, active: true, redemptionCount: { lt: found.maxRedemptions }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+          data: { redemptionCount: { increment: 1 } },
+        });
+        if (!reserved.count) throw new SelfEnrollmentError("COUPON_EXHAUSTED", "This coupon has no redemptions remaining.");
+        coupon = { id: found.id, percentOff: found.percentOff };
+        amountCents = Math.round(course.priceCents * (100 - found.percentOff) / 100);
+        lifecycle = found.percentOff === 100 ? "ACTIVE" : "PAYMENT_REQUIRED";
       }
-      const reserved = await tx.instructorCoupon.updateMany({
-        where: { id: found.id, active: true, redemptionCount: { lt: found.maxRedemptions }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
-        data: { redemptionCount: { increment: 1 } },
-      });
-      if (!reserved.count) throw new SelfEnrollmentError("COUPON_EXHAUSTED", "This coupon has no redemptions remaining.");
-      coupon = { id: found.id, percentOff: found.percentOff };
-      amountCents = Math.round(course.priceCents * (100 - found.percentOff) / 100);
-      lifecycle = found.percentOff === 100 ? "ACTIVE" : "PAYMENT_REQUIRED";
+    }
+
+    if (existing?.lifecycle === "PAYMENT_REQUIRED" && !coupon) {
+      throw new SelfEnrollmentError("PAYMENT_PENDING", "Complete payment or apply a discount to access this course.");
     }
 
     if (existing) {

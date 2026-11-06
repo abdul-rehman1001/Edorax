@@ -15,6 +15,8 @@ export type CatalogCourseCardProps = {
   currency: string | null;
   instructorName?: string | null;
   enrolledLabel?: string | null;
+  subcategory?: string | null;
+  tags?: string[];
 };
 
 /** The whole card is the link: a big target on a phone, and one tab stop per course. */
@@ -30,6 +32,8 @@ export function CatalogCourseCard({
   currency,
   instructorName,
   enrolledLabel,
+  subcategory,
+  tags = [],
 }: CatalogCourseCardProps) {
   const meta = [difficulty ? difficulty.toLowerCase() : null, estimatedHours ? `${estimatedHours} hours` : null]
     .filter(Boolean)
@@ -42,7 +46,9 @@ export function CatalogCourseCard({
       <CourseCover coverUrl={coverUrl} title={title} aspect="video" className="rounded-none" />
       <div className="flex flex-1 flex-col p-5">
         {meta ? <p className="text-sm capitalize text-muted-foreground">{meta}</p> : null}
+        {subcategory ? <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-primary">{subcategory}</p> : null}
         <h2 className="mt-2 text-lg leading-snug tracking-[-0.02em]">{title}</h2>
+        {tags.length ? <p className="mt-2 line-clamp-1 text-xs text-muted-foreground">{tags.slice(0, 3).join(" · ")}</p> : null}
         {instructorName ? <p className="mt-1 text-sm text-muted-foreground">With {instructorName}</p> : null}
         {description ? (
           <p className="mt-2 line-clamp-3 flex-1 text-base leading-6 text-muted-foreground">{description}</p>

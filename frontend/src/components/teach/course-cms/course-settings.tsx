@@ -25,6 +25,8 @@ function settingsFromCourse(course: CourseSettingsView): CourseSettingsInput {
     difficulty: course.difficulty ?? "",
     estimatedHours: course.estimatedHours == null ? "" : String(course.estimatedHours),
     category: course.category,
+    subcategory: course.subcategory ?? "",
+    tags: course.tags,
     sequential: course.sequential,
     autoGradeOpenQuestions: course.autoGradeOpenQuestions,
     ...(course.hasVariants ? { variantAssignment: course.variantAssignment } : {}),
@@ -45,6 +47,8 @@ function settingsFromForm(form: HTMLFormElement): CourseSettingsInput {
     difficulty: String(data.get("difficulty") ?? ""),
     estimatedHours: String(data.get("estimatedHours") ?? ""),
     category: String(data.get("category") ?? "TECH"),
+    subcategory: String(data.get("subcategory") ?? ""),
+    tags: String(data.get("tags") ?? "").split(",").map((tag) => tag.trim().toLowerCase()).filter(Boolean),
     sequential: data.get("sequential") === "on",
     autoGradeOpenQuestions: data.get("autoGradeOpenQuestions") === "on",
     ...(variantAssignment === null ? {} : { variantAssignment: String(variantAssignment) }),
@@ -62,6 +66,8 @@ function sectionChanged(current: CourseSettingsInput, saved: CourseSettingsInput
       current.difficulty !== saved.difficulty ||
       current.estimatedHours !== saved.estimatedHours ||
       current.category !== saved.category ||
+      current.subcategory !== saved.subcategory ||
+      current.tags.join(",") !== saved.tags.join(",") ||
       current.sequential !== saved.sequential ||
       current.autoGradeOpenQuestions !== saved.autoGradeOpenQuestions ||
       current.variantAssignment !== saved.variantAssignment
@@ -79,6 +85,8 @@ function mergeSection(saved: CourseSettingsInput, current: CourseSettingsInput, 
       difficulty: current.difficulty,
       estimatedHours: current.estimatedHours,
       category: current.category,
+      subcategory: current.subcategory,
+      tags: current.tags,
       sequential: current.sequential,
       autoGradeOpenQuestions: current.autoGradeOpenQuestions,
       variantAssignment: current.variantAssignment,
@@ -236,6 +244,12 @@ export function CourseSettings({ course }: { course: CourseSettingsView }) {
             <select id="course-category" name="category" defaultValue={course.category} className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30">
               <option value="TECH">Tech</option><option value="SOFT_SKILLS">Soft skills</option>
             </select>
+          </Field>
+          <Field label="Subcategory" htmlFor="course-subcategory" hint="Examples: AI, Full Stack, AWS, or System Design.">
+            <Input id="course-subcategory" name="subcategory" defaultValue={course.subcategory ?? ""} maxLength={80} placeholder="Full Stack" className="h-10" />
+          </Field>
+          <Field label="Search tags" htmlFor="course-tags" hint="Comma-separated topics learners can search and filter by.">
+            <Input id="course-tags" name="tags" defaultValue={course.tags.join(", ")} maxLength={400} placeholder="React, TypeScript, APIs" className="h-10" />
           </Field>
           <label className="flex items-start gap-3 rounded-xl border bg-muted/25 p-4">
             <input type="checkbox" name="sequential" defaultChecked={course.sequential} className="mt-1 size-4 accent-primary" />

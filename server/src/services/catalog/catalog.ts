@@ -12,6 +12,8 @@ const summarySelect = {
   difficulty: true,
   estimatedHours: true,
   category: true,
+  subcategory: true,
+  tags: true,
   projectGoal: true,
   pricingType: true,
   priceCents: true,

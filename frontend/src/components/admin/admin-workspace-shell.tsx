@@ -7,7 +7,9 @@ import {
   BookOpen,
   Building2,
   ClipboardList,
+  BadgePercent,
   History,
+  KeyRound,
   LayoutDashboard,
   LineChart,
   Menu,
@@ -76,6 +78,18 @@ export function AdminWorkspaceShell({
       href: "/admin/courses",
       icon: BookOpen,
       active: pathname === "/admin/courses",
+    },
+    {
+      label: "Course access",
+      href: "/admin/course-access",
+      icon: KeyRound,
+      active: pathname.startsWith("/admin/course-access"),
+    },
+    {
+      label: "Discounts",
+      href: "/admin/discounts",
+      icon: BadgePercent,
+      active: pathname.startsWith("/admin/discounts"),
     },
     {
       label: "Users",

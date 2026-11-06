@@ -1,6 +1,6 @@
 import { ADMIN_AUDIT_ACTIONS, recordAdminAction, type AdminActor } from "../admin/audit.js";
 import { prisma } from "../../db/prisma.js";
-import { ConflictError, NotFoundError, UnprocessableError } from "../../utils/errors.js";
+import { ConflictError, NotFoundError } from "../../utils/errors.js";
 import { appBaseUrl, sendEmail } from "../email/send.js";
 import { escapeHtml } from "../email/format.js";
 
@@ -12,10 +12,11 @@ export async function requestManualAccess(enrollmentId: string, userId: string) 
   const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { email: true } });
   const { env } = await import("../../config/env.js");
   const recipients = [...new Set([...admins.map(a => a.email), ...env.ADMIN_NOTIFY_EMAIL].map(e => e.trim().toLowerCase()).filter(Boolean))];
-  if (!recipients.length) throw new UnprocessableError("No administrator email is configured.");
   const text = `Course access request\n\nLearner: ${enrollment.user.name ?? ""} (${enrollment.user.email})\nCourse: ${enrollment.course.title}\nPrice: ${enrollment.payment?.amountCents ?? enrollment.course.priceCents} cents ${enrollment.payment?.currency ?? enrollment.course.currency}\n\nReview: ${appBaseUrl()}/admin/course-access`;
   const results = await Promise.allSettled(recipients.map(to => sendEmail({ to, subject: `Course access request: ${enrollment.course.title}`, text, html: `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>` })));
-  if (!results.some(result => result.status === "fulfilled" && result.value.sent)) throw new UnprocessableError("Could not send your request. Please try again later.");
+  // The PAYMENT_REQUIRED enrollment is already the durable admin queue item. A mail
+  // outage or an unconfigured local email provider must not discard the request.
+  return { requested: true, emailSent: results.some(result => result.status === "fulfilled" && result.value.sent) };
 }
 
 export async function approveManualAccess(enrollmentId: string, actor: AdminActor) {
