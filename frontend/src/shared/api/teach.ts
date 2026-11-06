@@ -218,7 +218,7 @@ export type CourseSettingsInput = {
   difficulty: string;
   estimatedHours: string;
   category: string;
-  subcategory: string;
+  subcategory: string | null;
   tags: string[];
   sequential: boolean;
   autoGradeOpenQuestions: boolean;

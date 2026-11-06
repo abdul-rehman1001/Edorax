@@ -217,6 +217,8 @@ export type CourseSettingsInput = {
   difficulty: string;
   estimatedHours: string;
   category: string;
+  subcategory: string | null;
+  tags: string[];
   sequential: boolean;
   autoGradeOpenQuestions: boolean;
   /** Only sent for a course in a family; omitted leaves it as it is. */
