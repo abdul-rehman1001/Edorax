@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Dot } from "@/components/brand/dot";
-import { CoursesTabs } from "@/components/learn/courses-tabs";
 import { buttonVariants } from "@/components/ui/button";
 import { MenteeCourseList } from "@/components/learn/dashboard/mentee-dashboard";
 import type { MenteeDashboardViewModel } from "@/shared/api/learner";
@@ -19,9 +18,6 @@ export default async function MenteeCoursesPage() {
       <header>
         <h1 className="text-[32px] leading-tight tracking-[-0.035em] sm:text-[40px]">My courses</h1>
         <p className="mt-2 max-w-2xl text-lg text-muted-foreground">Pick up where you left off, review your lessons, or open a course you have joined.</p>
-        <div className="mt-6">
-          <CoursesTabs active="mine" />
-        </div>
       </header>
 
       {model.courses.length > 0 ? (

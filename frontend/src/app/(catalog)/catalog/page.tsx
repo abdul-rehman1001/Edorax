@@ -8,7 +8,6 @@ import { serverApiFetch } from "@/lib/api-server";
 import { COURSE_CATEGORY_INFO, categoryFromParam } from "@/lib/course-categories";
 import { CatalogCourseCard } from "@/components/learn/catalog-course-card";
 import { CatalogCategoryTiles } from "@/components/learn/catalog-category-tiles";
-import { CoursesTabs } from "@/components/learn/courses-tabs";
 import { Dot } from "@/components/brand/dot";
 
 function CourseGrid({ courses }: { courses: CatalogCourseSummary[] }) {
@@ -66,11 +65,6 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
         <p className="mt-2 max-w-2xl text-lg text-muted-foreground">
           {user ? "Explore the catalog and find the next course for your learning goals." : "Look inside any course. You only need an account to enroll."}
         </p>
-        {user ? (
-          <div className="mt-6">
-            <CoursesTabs active="all" />
-          </div>
-        ) : null}
         {courses.length > 0 ? <CatalogCategoryTiles counts={counts} total={courses.length} active={active} /> : null}
       </header>
 
