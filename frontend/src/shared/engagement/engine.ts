@@ -6,45 +6,23 @@ import type {
   TrackEventRequest,
   TrackEventResult,
 } from "../api/engagement";
-import {
-  resolveMascot,
-  type MascotAsset,
-  type MascotDefinition,
-  type MascotRole,
-  type MascotState,
-  type PageArea,
-} from "./mascots";
-import { dotClipUrl } from "./dot-voice";
-import { ENGAGEMENT_RULES, matchingRules, type EngagementRule, type MascotAction } from "./rules";
+import type { MascotDefinition, MascotRole, PageArea } from "./mascots";
+import { decideReaction, readReaction, type MascotReaction } from "./reactions";
+import type { EngagementRule } from "./rules";
 
-// The engagement engine. track(event) reports the event (the server verifies it and fills in the
-// facts), picks the reaction the rules give, applies cooldowns, and hands the reaction to
-// `present`. react(events) does the same for moments the client already holds verified data for
-// (a live notification), without reporting them. No UI or platform code lives here: the web app and
-// a mobile app plug in their own transport, storage and presenter.
+export type { MascotReaction } from "./reactions";
+
+// The engagement engine, the app's side of a reaction. track(event) reports the event (the server
+// verifies it, fills in the facts and decides the reaction) and hands the reaction to `present`.
+// show(reaction) presents one that arrived another way (a live notification). react(events) is the
+// fallback: it decides locally, with the same rules, when the API sent no decision because it is
+// older or reactions are switched off there. No UI or platform code lives here: each app plugs in
+// its own transport, storage and presenter.
 //
-// Neither method throws or needs awaiting. A tracking problem must not break the action that
+// None of these throw or need awaiting. A tracking problem must not break the action that
 // triggered it, so every failure goes to `onError` and the result is simply "no reaction".
 
 export type EngagementTrackInput = { type: EngagementEventType; courseId?: string; chapterId?: string };
-
-export type MascotReaction = {
-  ruleId: string;
-  mascotId: string;
-  mascotName: string;
-  /** Live renderer for this mascot, when it has one (see MascotDefinition.rig). */
-  rig?: MascotDefinition["rig"];
-  role: MascotRole;
-  state: MascotState;
-  asset: MascotAsset;
-  message: string;
-  /** App-relative URL of Dot's recorded clip of this line ("/brand/dot/voice/lesson-done.mp3"), when the rule has one. */
-  voice?: string;
-  /** XP the moment earned, shown beside the line; absent when XP is off or hidden. */
-  xp?: number;
-  /** A next step the learner may take from the bubble. */
-  action?: MascotAction;
-};
 
 /** Small key/value store for cooldowns (localStorage on the web, AsyncStorage-backed on mobile). */
 export type EngagementStore = {
@@ -74,6 +52,7 @@ export type EngagementEngineOptions = {
 
 export type EngagementEngine = {
   track(input: EngagementTrackInput): Promise<MascotReaction | null>;
+  show(reaction: unknown): MascotReaction | null;
   react(events: readonly RecordedEngagementEvent[]): MascotReaction | null;
 };
 
@@ -103,11 +82,6 @@ export function createEngagementEngine(options: EngagementEngineOptions): Engage
     return Number.isFinite(last) && last > 0 && now() - last < rule.cooldownMs;
   }
 
-  function pickRule(rules: EngagementRule[]): EngagementRule | null {
-    const reading = options.isReading?.() ?? false;
-    return rules.find((rule) => !(rule.ambient && reading) && !coolingDown(rule)) ?? null;
-  }
-
   /** The index of a random line from the rule, never the same one twice in a row. */
   function pickLine(rule: EngagementRule): number {
     const count = rule.messages.length;
@@ -120,45 +94,53 @@ export function createEngagementEngine(options: EngagementEngineOptions): Engage
 
   /** Picks, casts and presents the reaction to a batch of events, or returns null for none. */
   function respond(events: readonly RecordedEngagementEvent[], rewards?: TrackEventResult["rewards"]): MascotReaction | null {
-    const rules = options.rules ?? ENGAGEMENT_RULES;
-    const rule = pickRule(matchingRules(events, rules));
-    if (!rule) return null;
-    if (rule.cooldownMs) storage.set(COOLDOWN_PREFIX + rule.id, String(now()));
-
-    const { mascot, state, asset } = resolveMascot(
-      { role: rule.role, state: rule.state, mascot: rule.mascot, area: options.area?.() ?? null },
-      {
+    const decision = decideReaction(events, {
+      rewards,
+      reading: options.isReading?.() ?? false,
+      area: options.area?.() ?? null,
+      coolingDown,
+      pickLine,
+      rules: options.rules,
+      casting: {
         registry: options.registry,
         roleMap: options.roleMap,
         areaMap: options.areaMap,
         defaultMascotId: options.defaultMascotId,
-      }
-    );
-    const event = events.find((candidate) => candidate.isNew && rule.matches(candidate));
-    const action = event && rule.action?.(event);
-    const line = pickLine(rule);
-    const reaction: MascotReaction = {
-      ruleId: rule.id,
-      mascotId: mascot.id,
-      mascotName: mascot.name,
-      ...(mascot.rig ? { rig: mascot.rig } : {}),
-      role: rule.role,
-      state,
-      asset,
-      message: rule.messages[line]!,
-      ...(rule.clip ? { voice: dotClipUrl(rule.clip) } : {}),
-      ...(rewards?.xp ? { xp: rewards.xp } : {}),
-      ...(action ? { action } : {}),
-    };
-    options.present(reaction);
+      },
+    });
+    if (!decision) return null;
+    if (decision.rule.cooldownMs) storage.set(COOLDOWN_PREFIX + decision.rule.id, String(now()));
+    options.present(decision.reaction);
+    return decision.reaction;
+  }
+
+  function show(value: unknown): MascotReaction | null {
+    const reaction = readReaction(value);
+    if (reaction) options.present(reaction);
     return reaction;
   }
 
   return {
     async track(input) {
       try {
-        const result = await options.transport({ ...input, platform: options.platform });
+        const area = options.area?.();
+        const result = await options.transport({
+          ...input,
+          platform: options.platform,
+          ...(options.isReading?.() ? { reading: true } : {}),
+          ...(area ? { area } : {}),
+        });
+        // null is the API deciding on no reaction; only a missing field means it did not decide.
+        if (result.reaction !== undefined) return show(result.reaction);
         return respond(result.events, result.rewards);
+      } catch (error) {
+        report(error);
+        return null;
+      }
+    },
+    show(reaction) {
+      try {
+        return show(reaction);
       } catch (error) {
         report(error);
         return null;

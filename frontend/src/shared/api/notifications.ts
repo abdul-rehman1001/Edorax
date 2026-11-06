@@ -4,6 +4,8 @@
 // Which channels each event uses is decided on the server (services/notifications/config.ts);
 // this file only names the categories a person can switch on or off.
 
+import type { MascotReaction } from "../engagement/reactions";
+
 export const NOTIFICATION_CATEGORIES = ["activity", "course", "reminder", "account", "admin"] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
@@ -76,6 +78,8 @@ export type NotificationItem = {
   createdAt: string;
   /** review.feedback only: what the mentor decided (absent on notifications sent before it was stored). */
   verdict?: "APPROVED" | "NEEDS_REVISION";
+  /** Live pushes only: what the messenger mascot says about this notification, when it has words for it. */
+  reaction?: MascotReaction;
 };
 
 export type NotificationFeed = {

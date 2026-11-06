@@ -7,6 +7,9 @@
 // A "chapter" is the unit a learner completes (a Module only groups chapters), and a quiz is a
 // chapter in quiz mode, so quiz events carry the chapter id.
 
+import type { PageArea } from "../engagement/mascots";
+import type { MascotReaction } from "../engagement/reactions";
+
 export const ENGAGEMENT_EVENT_TYPES = [
   "session_start",
   "enrolled",
@@ -42,7 +45,7 @@ export type EngagementServerEventType = (typeof ENGAGEMENT_SERVER_EVENT_TYPES)[n
 export const ENGAGEMENT_LOCAL_EVENT_TYPES = ["message_received"] as const;
 export type EngagementLocalEventType = (typeof ENGAGEMENT_LOCAL_EVENT_TYPES)[number];
 
-export const ENGAGEMENT_PLATFORMS = ["web", "ios", "android"] as const;
+export const ENGAGEMENT_PLATFORMS = ["web", "desktop", "ios", "android"] as const;
 export type EngagementPlatform = (typeof ENGAGEMENT_PLATFORMS)[number];
 
 /** Which id each event type must name. */
@@ -67,6 +70,10 @@ export type TrackEventRequest = {
   courseId?: string;
   chapterId?: string;
   platform?: EngagementPlatform;
+  /** The learner is reading, so the reaction must not be an ambient one. */
+  reading?: boolean;
+  /** The part of the app the learner is in, for casting. */
+  area?: PageArea;
 };
 
 export type QuizSubmittedFacts = {
@@ -140,4 +147,9 @@ export type TrackEventResult = {
   events: RecordedEngagementEvent[];
   /** XP this moment earned, when XP is on and the learner shows game elements. */
   rewards?: { xp: number };
+  /**
+   * What the mascot does, decided here so every app shows the same thing. null: nothing this time.
+   * Absent: the API did not decide (older, or MASCOT_SERVER_REACTIONS=false) and the app may.
+   */
+  reaction?: MascotReaction | null;
 };
