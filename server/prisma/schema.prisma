@@ -132,6 +132,12 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum InstructorPayoutStatus {
+  NOT_DUE
+  PENDING
+  PAID
+}
+
 /// Org coupon seat that has been reserved for a learner (mentor assign / Pathment enroll).
 enum CouponUsageStatus {
   ISSUED
@@ -273,6 +279,8 @@ model User {
   profile       UserProfile?
   learnerProfile LearnerProfile?
   coursesOwned  Course[]     @relation("CourseMentor")
+  instructorCouponsCreated InstructorCoupon[] @relation("InstructorCouponCreator")
+  instructorCouponRedemptions InstructorCouponRedemption[]
   courseMemberships CourseInstructor[]
   courseInstructorInvitesSent CourseInstructorInvite[] @relation("CourseInstructorInviteSender")
   enrollments   Enrollment[]
@@ -426,6 +434,7 @@ model Course {
   organizationCourseRequests OrganizationCourseRequest[]
   couponPools    OrganizationCouponPool[]
   couponUsages   CouponUsage[]
+  instructorCoupons InstructorCoupon[]
   invites        Invite[]
   helpThreads    HelpThread[]
   publishedAt    DateTime?
@@ -649,6 +658,7 @@ model Enrollment {
   studySessions     StudySession[]
   integrityAttempts IntegrityAttempt[]
   payment           Payment?
+  instructorCouponRedemption InstructorCouponRedemption?
   xpEntries         XpEntry[]
   couponUsage       CouponUsage?
 
@@ -697,6 +707,41 @@ model OrganizationCouponPool {
 
   @@index([organizationId, courseId, active])
   @@index([organizationId, code])
+}
+
+/// Instructor-created, course-specific percentage coupons. Codes can be shared with learners.
+model InstructorCoupon {
+  id              String       @id @default(cuid())
+  courseId        String
+  course          Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdById     String
+  createdBy       User         @relation("InstructorCouponCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  code            String       @unique
+  label           String
+  percentOff      Int          @default(100)
+  maxRedemptions  Int
+  redemptionCount Int          @default(0)
+  active          Boolean      @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  redemptions     InstructorCouponRedemption[]
+
+  @@index([courseId, active])
+}
+
+model InstructorCouponRedemption {
+  id          String          @id @default(cuid())
+  couponId    String
+  coupon      InstructorCoupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  enrollmentId String         @unique
+  enrollment  Enrollment      @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  percentOff  Int
+  redeemedAt  DateTime        @default(now())
+
+  @@index([couponId, redeemedAt])
 }
 
 /// One reserved seat from a pool, created when a mentor/Pathment assigns the course.
@@ -786,6 +831,9 @@ model Payment {
   provider     String?
   providerRef  String?
   paidAt       DateTime?
+  instructorShareCents Int   @default(0)
+  instructorPayoutStatus InstructorPayoutStatus @default(NOT_DUE)
+  instructorPayoutPaidAt DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }

@@ -63,8 +63,8 @@ export default async function CatalogCoursePage({
   const needsPayment = course.access === "payment_required";
   // Visitors sign up first and land straight in the course (see app/enroll); learners enroll in one
   // click and open the first lesson.
-  const enrollPath = `/enroll/${course.slug}`;
-  const enrollLabel = course.pricingType === "PAID" ? "Request access" : "Enroll for free";
+  const enrollPath = course.pricingType === "PAID" ? `/courses/${course.slug}/checkout` : `/enroll/${course.slug}`;
+  const enrollLabel = course.pricingType === "PAID" ? "Enroll" : "Enroll for free";
 
   const enrollActions = (
     <>
@@ -73,9 +73,11 @@ export default async function CatalogCoursePage({
           Go to course
         </Link>
       ) : needsPayment ? (
-        <Link href={`/courses/${course.slug}/checkout`} className={buttonVariants({ size: "lg" })}>
-          Request access
-        </Link>
+        <Link href={`/courses/${course.slug}/checkout`} className={buttonVariants({ size: "lg" })}>Continue enrollment</Link>
+      ) : course.pricingType === "PAID" ? !user ? (
+        <Link href={`/signup?redirectTo=${encodeURIComponent(enrollPath)}`} className={buttonVariants({ size: "lg" })}>{enrollLabel}</Link>
+      ) : (
+        <Link href={enrollPath} className={buttonVariants({ size: "lg" })}>{enrollLabel}</Link>
       ) : !user ? (
         <Link href={`/signup?redirectTo=${encodeURIComponent(enrollPath)}`} className={buttonVariants({ size: "lg" })}>
           {enrollLabel}

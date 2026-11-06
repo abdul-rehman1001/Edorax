@@ -21,6 +21,7 @@ import type {
   MoveDirection,
   SubmitReviewBody,
   courseInstructorInviteBody,
+  CreateInstructorCouponBody,
 } from "../validations/teach.js";
 
 // Instructor workspace. Every handler runs behind authenticate + requireVerified +
@@ -50,6 +51,22 @@ export async function getCourseBuilder(req: Request, res: Response) {
 
 export async function getCourseSettings(req: Request, res: Response) {
   ok(res, await courses.loadCourseSettings(req.user!, param(req, "courseSlug")));
+}
+
+export async function listCourseCoupons(req: Request, res: Response) {
+  const coupons = await import("../services/teach/course-coupons.js");
+  ok(res, await coupons.listCourseCoupons(req.user!, param(req, "courseSlug")));
+}
+
+export async function createCourseCoupon(req: Request, res: Response) {
+  const coupons = await import("../services/teach/course-coupons.js");
+  created(res, await coupons.createCourseCoupon(req.user!, param(req, "courseId"), req.body as CreateInstructorCouponBody));
+}
+
+export async function setCourseCouponActive(req: Request, res: Response) {
+  const coupons = await import("../services/teach/course-coupons.js");
+  await coupons.setCourseCouponActive(req.user!, param(req, "courseId"), param(req, "couponId"), (req.body as { active: boolean }).active);
+  noContent(res);
 }
 
 export async function getCourseDraftPreview(req: Request, res: Response) {
