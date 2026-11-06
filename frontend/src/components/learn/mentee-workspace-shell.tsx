@@ -52,7 +52,7 @@ export function MenteeWorkspaceShell({
   const home: LearnerNavItem = { label: "Home", href: "/dashboard", icon: Home, active: pathname === "/dashboard" };
   // Every learner area, in the order of LEARN_AREAS. Courses opens on every course; the learner's own courses are under "My learning".
   const areaItems: LearnerNavItem[] = LEARN_AREAS.map((a) => ({
-    label: a.id === "voice" ? "Voice agents" : a.short,
+    label: a.id === "voice" ? a.name : a.short,
     href: a.href,
     icon: AREA_ICON[a.id],
     active: area?.id === a.id && pathname !== "/my-courses",

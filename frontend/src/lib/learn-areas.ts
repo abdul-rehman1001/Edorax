@@ -30,9 +30,9 @@ export const LEARN_AREAS: readonly LearnArea[] = [
     short: "Courses",
     href: "/catalog",
     status: "live",
-    tagline: "Chapters you read, play with, listen to and prove.",
+    tagline: "Read it, play with it, listen to it, prove it. Videos are next.",
     summary:
-      "Full courses in tech and human skills. Every chapter starts with a question, has live diagrams, can be heard word by word, and ends with a short quiz.",
+      "Full courses in tech and human skills. Every chapter starts with a question, has diagrams you can play with, can be heard word by word, and ends with a short quiz that proves you got it. Short videos come next, for the ideas that are easier to see.",
     matches: ["/catalog", "/my-courses", "/courses"],
   },
   {
@@ -41,9 +41,9 @@ export const LEARN_AREAS: readonly LearnArea[] = [
     short: "Listen",
     href: "/listen",
     status: "live",
-    tagline: "Courses read aloud, chapter by chapter.",
+    tagline: "Every course as an audiobook. Learn on a walk, a drive or a run.",
     summary:
-      "Every course with listen-along audio in one place, with its chapters and hours. Press play in any chapter and read along, at any speed from 0.75x to 4x. Videos come next.",
+      "Every course with audio in one place, like a shelf of audiobooks, with its chapters and hours. Press play in any chapter and read along, or put the phone away and just listen, at any speed from 0.75x to 4x.",
     matches: ["/listen"],
   },
   {
@@ -59,11 +59,11 @@ export const LEARN_AREAS: readonly LearnArea[] = [
   },
   {
     id: "practice",
-    name: "Bite-sized practice",
+    name: "Five-minute practice",
     short: "Practice",
     href: "/practice",
     status: "coming-soon",
-    tagline: "A few minutes a day on one topic, led by questions.",
+    tagline: "One topic, five minutes a day. A question first, then the idea behind it.",
     summary:
       "Master one topic, such as System Design, in short daily sessions: today's question, quick quizzes, quick reads and a review queue. When you cannot answer, it helps you work the answer out.",
     matches: ["/practice"],
@@ -74,20 +74,20 @@ export const LEARN_AREAS: readonly LearnArea[] = [
     short: "Puzzles",
     href: "/puzzles",
     status: "coming-soon",
-    tagline: "A new puzzle every day.",
+    tagline: "One new puzzle a day. Solve it, then climb the daily leaderboard.",
     summary:
-      "Several kinds of daily puzzles that use what you learn. One a day, the same for everyone. The mobile app will add a daily leaderboard.",
+      "Several kinds of daily puzzles that use what you learn. One a day, the same for everyone, so you can compete with everyone on today's leaderboard.",
     matches: ["/puzzles"],
   },
   {
     id: "voice",
-    name: "Voice agents",
-    short: "Voice",
+    name: "On-call tutors",
+    short: "Tutors",
     href: "/voice",
     status: "coming-soon",
-    tagline: "Call a tutor for a topic and talk it through.",
+    tagline: "Call, start talking, and ask about anything that feels hard.",
     summary:
-      "One voice agent per topic. It greets you, asks your level, answers your questions and keeps steering you to the modules that fit, while tracking your progress across the whole topic.",
+      "A tutor for every topic, one call away. Say what you already know and start talking. Ask about anything that feels hard, as many times as you need; it explains in plain words and keeps track of where you are in the topic.",
     matches: ["/voice"],
   },
 ];

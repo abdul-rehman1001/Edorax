@@ -5,10 +5,10 @@ import { areaById } from "@/lib/learn-areas";
 import { AreaHero, AreaPage, AreaSection, CardGrid, ComingSoonPanel, InfoCard, StepList } from "@/components/areas/area-page";
 
 export const metadata: Metadata = {
-  title: "Bite-sized practice",
-  description: "Master one topic a few minutes a day: today's question, quick quizzes, quick reads and a review queue.",
+  title: "Five-minute practice",
+  description: "Master one topic five minutes a day: today's question, quick quizzes, quick reads and a review queue.",
   alternates: { canonical: "/practice" },
-  openGraph: { title: "Bite-sized practice on Edorax", url: "/practice", images: [SITE_SHARE_IMAGE] },
+  openGraph: { title: "Five-minute practice on Edorax", url: "/practice", images: [SITE_SHARE_IMAGE] },
 };
 
 export default function PracticePage() {
@@ -20,7 +20,7 @@ export default function PracticePage() {
         title={area.name}
         status={area.status}
         mood="think"
-        intro="Master one topic, such as System Design, a few minutes a day. It starts with a question, not a lecture. When you cannot answer, it helps you work the answer out."
+        intro="Master one topic, such as System Design, five minutes a day. It starts with a question, not a lecture. When you cannot answer, it helps you work the answer out."
       />
 
       <AreaSection id="formats" title="Four short formats">
@@ -57,7 +57,7 @@ export default function PracticePage() {
         </div>
       </AreaSection>
 
-      <ComingSoonPanel title="Bite-sized practice is being built" action={{ href: "/catalog", label: "Browse courses" }}>
+      <ComingSoonPanel title="Five-minute practice is being built" action={{ href: "/catalog", label: "Browse courses" }}>
         System Design comes first. Until then, every course chapter ends with a short quiz you can retake.
       </ComingSoonPanel>
     </AreaPage>
