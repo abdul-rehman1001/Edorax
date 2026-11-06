@@ -2,13 +2,14 @@ import { enrollmentLabel } from "@buildment/learning-ui/components/learn/enrollm
 import type { Metadata } from "next";
 import { SITE_SHARE_IMAGE } from "@/lib/site";
 import type { CatalogCourseSummary } from "@/shared/api/catalog";
-import type { CourseCategory } from "@/shared/domain/enums";
+import { COURSE_CATEGORIES, type CourseCategory } from "@/shared/domain/enums";
 import { getSessionUser } from "@/server/auth/guards";
 import { serverApiFetch } from "@/lib/api-server";
 import { COURSE_CATEGORY_INFO, categoryFromParam } from "@/lib/course-categories";
 import { CatalogCourseCard } from "@/components/learn/catalog-course-card";
 import { CatalogCategoryTiles } from "@/components/learn/catalog-category-tiles";
 import { Dot } from "@/components/brand/dot";
+import { AreaTabs } from "@/components/areas/area-tabs";
 
 function CourseGrid({ courses }: { courses: CatalogCourseSummary[] }) {
   return (
@@ -42,7 +43,7 @@ function CourseGrid({ courses }: { courses: CatalogCourseSummary[] }) {
 
 export const metadata: Metadata = {
   title: "Explore courses",
-  description: "Explore courses in tech and soft skills: networking, system design, product sense, communication and more.",
+  description: "Explore courses in tech, soft skills, and cloud and DevOps: networking, system design, product sense, communication and more.",
   alternates: { canonical: "/catalog" },
   openGraph: { title: "Courses on Edorax", url: "/catalog", images: [SITE_SHARE_IMAGE] },
 };
@@ -63,7 +64,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
     return (!query || text.includes(query.toLowerCase())) && (!subcategory || course.subcategory === subcategory) && (!tag || course.tags.some((item) => item.toLowerCase() === tag));
   });
 
-  const counts = { TECH: 0, SOFT_SKILLS: 0 } as Record<CourseCategory, number>;
+  const counts = Object.fromEntries(COURSE_CATEGORIES.map((category) => [category, 0])) as Record<CourseCategory, number>;
   for (const course of courses) counts[course.category] += 1;
 
   // "All" shows every category as its own section; filters narrow each section.
@@ -73,7 +74,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
-      <header>
+      <AreaTabs />
+      <header className="mt-8">
         <h1 className="text-[32px] leading-tight tracking-[-0.035em] sm:text-[40px]">Explore courses</h1>
         <p className="mt-2 max-w-2xl text-lg text-muted-foreground">
           {user ? "Explore the catalog and find the next course for your learning goals." : "Look inside any course. You only need an account to enroll."}

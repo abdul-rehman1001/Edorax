@@ -13,6 +13,7 @@ import { updateCourseSettings } from "@/server/actions/modules";
 import type { CourseSettingsInput, CourseSettingsView } from "@/shared/api/teach";
 import { uploadCourseImage } from "@/lib/course-media-upload";
 import { isSafeAssetUrl } from "@/shared/lib/asset-url";
+import { COURSE_CATEGORY_INFO } from "@/lib/course-categories";
 
 type SettingsSection = "details" | "learning" | "pricing";
 
@@ -242,7 +243,7 @@ export function CourseSettings({ course }: { course: CourseSettingsView }) {
           </div>
           <Field label="Catalog category" htmlFor="course-category" hint="Learners can filter the catalog by category.">
             <select id="course-category" name="category" defaultValue={course.category} className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30">
-              <option value="TECH">Tech</option><option value="SOFT_SKILLS">Soft skills</option>
+              {COURSE_CATEGORY_INFO.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
             </select>
           </Field>
           <Field label="Subcategory" htmlFor="course-subcategory" hint="Examples: AI, Full Stack, AWS, or System Design.">

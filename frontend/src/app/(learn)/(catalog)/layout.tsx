@@ -21,8 +21,15 @@ export default async function CatalogLayout({ children }: { children: React.Reac
             <Logo size="sm" />
           </Link>
           <nav aria-label="Main" className="ml-auto flex items-center gap-1 sm:gap-3">
+            {/* Phones switch areas with the tabs at the top of each page, so the header keeps only the account links. */}
             <Link href="/catalog" className="hidden px-2 py-3 text-base font-bold text-foreground sm:inline">
               Explore courses
+            </Link>
+            <Link href="/labs" className="hidden px-2 py-3 text-base font-bold text-foreground sm:inline">
+              Labs
+            </Link>
+            <Link href="/learn" className="hidden px-2 py-3 text-base font-bold text-foreground md:inline">
+              All areas
             </Link>
             {user ? (
               <Link href="/my-courses" className={buttonVariants({ variant: "outline" })}>

@@ -1,0 +1,229 @@
+---
+title: Learning areas, the platform map
+status: navigation, overview pages and the Listen area implemented 2026-11-05; practice, puzzles, voice and two lab kinds planned
+---
+
+# Learning areas
+
+**Reads:** [`00-product-overview.mdx`](00-product-overview.mdx) (what Edorax is),
+[`14-gamification.mdx`](14-gamification.mdx) (XP, streaks and opt-in leaderboards that puzzles and practice reuse),
+[`13-engagement.mdx`](13-engagement.mdx) (Dot and the mascot rules), [`../DESKTOP-PLAN.md`](../DESKTOP-PLAN.md) (the desktop app shell labs need).
+
+Edorax grows from a course reader into a learning platform with six learner areas. This doc is the
+map: what each area is, where it lives in the code, what exists today, and what to build next. Each
+area section is written so one work session can pick it up on its own.
+
+## The six areas
+
+| Area | Route | Status | What it is |
+|---|---|---|---|
+| Courses | `/catalog`, `/my-courses`, `/courses/...` | Open | Full courses: read, play, listen, prove. |
+| Listen | `/listen` | Open | Every course with listen-along audio, its chapters and hours. Videos later. |
+| Labs | `/labs` | Partly open | Visual labs open; guided and shell labs planned. |
+| Bite-sized practice | `/practice` | Coming soon | One topic a few minutes a day, led by questions. |
+| Puzzles | `/puzzles` | Coming soon | Several kinds of daily puzzle. |
+| Voice agents | `/voice` | Coming soon | A voice tutor per topic that tracks progress across its modules. |
+
+Lab kinds, under `/labs`:
+
+| Kind | Route | Status |
+|---|---|---|
+| Visual labs | `/labs/visual`, `/labs/visual/[slug]` | Open |
+| Guided labs | `/labs/guided` | Coming soon |
+| Shell labs | `/labs/shell` (with the desktop app docs at `#desktop`) | Coming soon, with the desktop app |
+
+## Information architecture (implemented)
+
+**One source of truth.** `frontend/src/lib/learn-areas.ts` holds every area and lab kind: name, short
+name, route, status, tagline, summary, and the paths that belong to it. The nav, the area tabs, the
+`/learn` hub, the overview pages, the landing page showcase and the sitemap all read from it. To open
+an area, change its `status` there and replace its overview page with the real feature.
+
+**Routes.** The area pages live in the `(catalog)` route group, next to `/catalog`, so they share its
+layout: public for visitors (a simple header with Courses, Labs and All areas), and inside the learner
+workspace shell for signed-in learners. They need no API and no database, so they render even when the
+API is down. The one exception is `/listen`, which reads the catalog for course titles and shows an
+empty state when the API is unreachable.
+
+```
+frontend/src/app/(learn)/(catalog)/
+  catalog/                 Courses (existing)
+  listen/                  Listen: courses with audio, read from the live manifests
+  learn/                   The hub: every area on one page
+  labs/                    Labs overview: the three kinds, open challenges, how a visual lab works
+    visual/                Every visual lab, grouped
+      [slug]/              One visual lab, the same board a chapter embeds
+    guided/                Guided labs (coming soon page)
+    shell/                 Shell labs and the desktop app docs (coming soon page)
+  practice/                Bite-sized practice (coming soon page)
+  puzzles/                 Puzzles (coming soon page)
+  voice/                   Voice agents (coming soon page)
+```
+
+**Navigation.**
+
+- Desktop sidebar (`components/learn/mentee-workspace-shell.tsx`): Home, then a **Learn** group with
+  every area (coming soon areas carry a small "Soon" tag), then a **You** group with Progress,
+  Leaderboard and Questions.
+- Phone bottom bar keeps five slots: Home, **Learn** (opens `/learn`, active on any area page),
+  Progress, Ranks, Questions.
+- Area tabs (`components/areas/area-tabs.tsx`) sit at the top of `/learn`, `/catalog` and every area
+  page, so moving between areas is one tap on a phone.
+- The landing page (`components/marketing/edorax/area-showcase.tsx`) shows all six areas with their
+  status, and its header and footer link to Labs and All areas.
+
+**Building blocks.** `components/areas/area-page.tsx` has the hero, sections, cards, step lists, status
+badges and the "coming soon" panel. They use theme tokens only, so they work in light and dark. Dot is
+the only mascot; each page picks a Dot mood.
+
+**Decision to confirm.** Visual labs are playable by anyone at `/labs/visual/[slug]`, the same
+exposure as the existing public `/zz-lab-preview`. If labs should be a paid or signed-in feature,
+gate that route (and drop the slugs from `sitemap.ts`).
+
+## Courses (open)
+
+Unchanged. See [`01-domain-model.mdx`](01-domain-model.mdx) through [`12-course-variants-and-publishing.mdx`](12-course-variants-and-publishing.mdx).
+Courses stay the spine: every other area links back to the modules it practises.
+
+## Listen (open)
+
+Code: `app/(learn)/(catalog)/listen/page.tsx`, `lib/listen-library.ts` (server loader), `lib/listen-summary.ts`
+(pure helpers, tested in `tests/unit/lib/listen-summary.test.ts`).
+
+- Course list: the published catalog (`/api/v1/catalog`). Audio: each course's live manifest at
+  `https://audio.edorax.com/<courseSlug>/manifest.json`, cached for five minutes. `NARRATION_BASE_URL`
+  (https only) points it elsewhere, as it does for the reader. A course shows up as soon as its
+  manifest exists; nothing in the database changes.
+- Each course card shows its chapter count and total hours, a "Listen from the start" button and the
+  full chapter list. Links open the reader at `/courses/<course>/<chapter>#listen`, the chapter's
+  Listen player (`components/learn/chapter-audio.tsx` carries `id="listen"`).
+- Courses are grouped by catalog category, in the order of `lib/course-categories.ts`.
+- Local development reads reader audio from `public/narration`, which has only a few courses, so a
+  chapter link can open a reader without a player there. Production has every manifest.
+- Videos: shown as coming soon on the page and the landing card. When they exist they can join this
+  area (a "Watch" tab beside Listen) or become their own area; decide when the first videos ship.
+
+## Course categories
+
+The catalog has three categories (`COURSE_CATEGORIES` in `server/src/shared/domain/enums.ts`, synced
+to the frontend; display info in `frontend/src/lib/course-categories.ts`):
+
+| Value | `course.yaml` | URL param | Label |
+|---|---|---|---|
+| `TECH` | `tech` (default) | `tech` | Tech |
+| `SOFT_SKILLS` | `soft-skills` | `soft-skills` | Soft skills |
+| `CLOUD_DEVOPS` | `cloud-devops` | `cloud-devops` | Cloud and DevOps |
+
+`courseCategoryFromSource` maps the `course.yaml` value for repository publishing, `content:import`
+and ZIP imports. The Prisma enum gained `CLOUD_DEVOPS` in migration
+`20261105120000_cloud_devops_category`. No course moves on its own: a course moves when its
+`course.yaml` says `category: cloud-devops` and it is published again, or when a creator changes it in
+the course settings. The Labs area groups the Docker Compose, Kubernetes, AWS and Linux host labs
+under Cloud and DevOps (`/labs#cloud-devops`, `/labs/visual#cloud-devops`).
+
+## Labs
+
+### Visual labs (open)
+
+Code: `packages/learning-ui/src/labs/` (`HldBoard.tsx`, `RunPanel.tsx`, `SettingsDrawer.tsx`, the
+`hld-*` and `net-*` folders), registered in `labs/registry.ts` and listed in `shared/lab/slugs.ts`.
+Learners move parts, link and size them, arm failures with Break it, and press Run. Nothing runs or
+breaks until Run is pressed. Every check passes or fails on the board with its reason.
+
+Next steps:
+
+1. Save results per learner: an attempt record per lab (design snapshot, checks passed, timestamp) so
+   `/labs/visual` can show "passed" and so passing can award XP through the existing ledger.
+2. Link each lab to the course chapter that teaches it (a `chapterRef` on the lab spec or a mapping in
+   course content), shown on the lab page as "Learn the idea first".
+3. Keep the learner's board when entering full screen. Today the board remounts when it moves into
+   the full screen portal, so unsaved edits are lost.
+
+### Guided labs (planned)
+
+A lab split into steps. Each step has a goal, guidance, a hint ladder (nudge, hint, worked example)
+and tests. Everything the learner runs in the shell is checked by tests against the machine state, not
+the typed commands.
+
+- Content model: `GuidedLab { slug, title, machine, steps: Step[] }`,
+  `Step { id, goal, body (MDX), hints[], checks: Check[] }`, `Check { id, label, run: string, expect }`.
+  Checks run inside the lab machine and return pass or fail with a message.
+- Runtime: the same machines as shell labs (below), so guided labs ship with the desktop app. A web
+  version needs a hosted sandbox and is a separate decision.
+- Progress: a step is complete when all its checks pass; the lab is complete when every step is.
+  Reuse chapter progress semantics from [`04-progress-and-gating.mdx`](04-progress-and-gating.mdx).
+
+### Shell labs (planned, with the desktop app)
+
+Real shell work on real machines, in the spirit of hands-on terminal playgrounds: Linux hosts,
+containers and small networks the learner can break and fix.
+
+- Built by Anas Khan in `desktop/`. Today the app has the catalogue, a native reader, a course IDE,
+  a local terminal (node-pty) and isolated Docker Linux workspaces (no network, read-only base,
+  CPU/memory/process limits). See `desktop/README.md`.
+- Missing: a course-authored lab contract (machine image, topology, setup and checks), multi-machine
+  networks, reset, and progress sync. The desktop README lists these as follow-up work.
+- The web page `/labs/shell` explains this and carries the desktop app docs (`#desktop`). Link
+  downloads there when the app is packaged and signed.
+
+## Bite-sized practice (planned)
+
+Master one topic (System Design first) in short daily sessions. It leads with questions: the learner
+answers first, and when they cannot, Dot helps them work the answer out (a smaller question, then a
+hint, then a worked example), the same help ladder as chapters.
+
+Formats: today's question, quick quizzes (3 to 5 questions), quick reads (one idea, one screen), and a
+spaced review queue (wrong answers come back after a few days, then less often).
+
+- Content model: a per-topic item bank. `PracticeItem { id, topic, moduleRef, kind (question | read),
+  prompt, choices?, answer (server only), hints[], explanation, readMoreRef }`. Items reference the
+  course module they practise.
+- Scheduling: per learner per item, `{ due, interval, ease, streak }` with a simple spaced repetition
+  rule. Today's question is one item per topic per day, the same for everyone.
+- Grading stays server side, as for quiz blocks ([`09-security.mdx`](09-security.mdx)).
+- Naming: call it the "practice queue" in code, to keep it apart from the mentor review queue in
+  [`05-review-queue.mdx`](05-review-queue.mdx).
+- Rewards: XP and streak credit through [`14-gamification.mdx`](14-gamification.mdx).
+
+## Puzzles (planned)
+
+Several kinds of daily puzzle that use course ideas, one a day, the same for everyone.
+
+- Kinds to start with: find the bottleneck, trace the request (order the steps), fix the diagram,
+  odd one out. Each kind is a small client component with a server-checked answer.
+- Model: `Puzzle { id, kind, date, data, answer (server only), clues[] }` and
+  `PuzzleAttempt { userId, puzzleId, tries, solvedAt }`. A wrong try reveals the next clue.
+- The diagram kinds can reuse the lab board model in `packages/learning-ui/src/labs/` for drawing
+  and checking.
+- Leaderboard: the mobile app adds a daily leaderboard later. It must be opt-in, like the weekly
+  leaderboards.
+
+## Voice agents (planned)
+
+One voice agent per topic. The learner calls it; it greets them ("Welcome to System Design, how are
+you doing today, should we get started?"), asks their level (beginner, intermediate, advanced) and
+checks it with a question or two, answers questions briefly, and keeps steering back to the modules
+that fit the level. It tracks progress across the topic's 40 to 50 modules, so the next call resumes.
+
+- Topic map: per topic, the ordered modules with level tags and a short summary each, generated from
+  the course outline. The agent's instructions come from this map.
+- Session state per learner per topic: level, modules covered, open questions, last position. Store it
+  server side; the agent reads it at call start and writes it at call end.
+- Pieces to choose: speech to text, the conversational model, text to speech (the course narration
+  voice could be reused), and a realtime transport. Keep provider keys on the server only.
+- Consent and privacy: ask before recording, say whether audio is kept, and offer a text chat fallback.
+- Cost controls: per learner daily minutes, and a hard call length.
+
+## Suggested build order
+
+1. Visual lab results and XP (small, builds on what exists).
+2. Bite-sized practice for System Design (reuses quiz grading, XP and streaks).
+3. Daily puzzles (reuses the lab board for the diagram kinds).
+4. Shell and guided labs with the desktop app's lab contract.
+5. Voice agents (the most new infrastructure).
+
+## House rules for every area
+
+- No em dashes or en dashes in UI copy, code comments, commits or PRs.
+- Dot is the only mascot. Use the brand pieces in `frontend/src/components/brand` and `mascot`.
+- Nothing runs on its own: a learner action that starts a run, a check or a call is always explicit.

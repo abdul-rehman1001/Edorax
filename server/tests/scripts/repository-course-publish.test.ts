@@ -114,6 +114,27 @@ describe("repository course publishing selection", () => {
     expect(courseDetailsUpdate(manifest, current)).toBeNull();
   });
 
+  it("maps category: cloud-devops in course.yaml to the Cloud and DevOps category", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "buildment-course-category-"));
+    temporary.push(root);
+    fs.writeFileSync(path.join(root, "publishing.yaml"), "instructorEmail: devweekends@gmail.com\n");
+    course(root, "ready", "repositoryPublish: true\ncategory: cloud-devops\n");
+    const manifest = selectedPackages(root)[0]!.manifest;
+    expect(manifest.category).toBe("cloud-devops");
+    const current = { title: "Example", description: "Example course", projectGoal: "Learn a skill", difficulty: "Beginner",
+      estimatedHours: 2, category: "TECH" as const, coverUrl: null, assistant: null, tags: [] };
+    expect(courseDetailsUpdate(manifest, current)).toEqual({ category: "CLOUD_DEVOPS" });
+    expect(courseDetailsUpdate(manifest, { ...current, category: "CLOUD_DEVOPS" })).toBeNull();
+  });
+
+  it("rejects a category course.yaml does not know", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "buildment-course-category-"));
+    temporary.push(root);
+    fs.writeFileSync(path.join(root, "publishing.yaml"), "instructorEmail: devweekends@gmail.com\n");
+    course(root, "ready", "repositoryPublish: true\ncategory: devops\n");
+    expect(() => selectedPackages(root)).toThrow();
+  });
+
   it("copies tutor settings by value and clears them when the source drops the block", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "buildment-course-assistant-"));
     temporary.push(root);

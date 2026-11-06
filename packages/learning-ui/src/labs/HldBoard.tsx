@@ -61,6 +61,7 @@ const DRAG_TYPE = "application/x-lab-kind";
 const HEAD_BTN = "lab-mono rounded-[4px] px-2 py-1 text-[10.5px] font-bold uppercase tracking-wide text-slate-200 hover:bg-white/10 hover:text-white disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300";
 const NODE_W = 176;
 const NODE_H = 104;
+const EMPTY_SET: Set<string> = new Set();
 
 type TierData = { kind: ComponentKind };
 type Ctx = {
@@ -71,6 +72,8 @@ type Ctx = {
   drawerId: string | null;
   /** Components the current scenario took down or thinned out. */
   hit: Set<string>;
+  /** Parts armed to break on the next run. */
+  armed: Set<string>;
   locked: boolean;
   /** A run is playing. */
   running: boolean;
@@ -111,6 +114,7 @@ function TierNode({ id, data }: NodeProps<Node<TierData>>) {
       load={load}
       lost={ctx.hit.has(id) && !down}
       down={down}
+      armed={ctx.armed.has(id)}
       linked={linked}
       managed={Boolean(tier?.managed)}
       selected={ctx.selected === id}
@@ -211,6 +215,39 @@ function startPositions(nodes: Board["nodes"]): Map<string, { x: number; y: numb
   return new Map(nodes.map((n, i) => [n.id, grid ? { x: n.x * 250 + 30, y: n.y * 160 + 20 } : { x: 80, y: i * 140 }]));
 }
 
+/**
+ * Plain names or real AWS service names. Only the labels change, never the model.
+ * It sits in the board's top bar in every view, so it is never more than one look away.
+ */
+function NamesToggle() {
+  const names = useNames();
+  return (
+    <div
+      role="group"
+      aria-label="Component names"
+      data-testid="names-toggle"
+      title="Show plain names or real AWS service names. Only the labels change."
+      className="lab-mono flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-200"
+    >
+      <span aria-hidden>Names</span>
+      <span className="flex overflow-hidden rounded-[6px] border border-slate-400/70 bg-black/20">
+        {(["generic", "aws"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            aria-pressed={names.mode === m}
+            data-testid={`names-${m}`}
+            onClick={() => names.setMode(m)}
+            className={`px-2.5 py-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-300 ${names.mode === m ? "bg-sky-300 text-slate-900" : "text-slate-100 hover:bg-white/10"}`}
+          >
+            {m === "aws" ? "AWS" : "Plain"}
+          </button>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 interface EditorProps {
   spec: HldLabSpec;
   onReset: () => void;
@@ -283,6 +320,10 @@ function Editor({ spec, onReset, solutionMode = false, onRun, onSnapshot, canOpe
   const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
   useEffect(() => clearTimers, []);
 
+  // Break it only arms a part. The failure happens when the learner presses Run tests.
+  const [armed, setArmed] = useState<Set<string>>(() => new Set());
+  const [queuedRun, setQueuedRun] = useState(0);
+
   const runState: RunState = runPhase !== null ? "running" : ranKey === null ? "idle" : ranKey === designKey ? "done" : "stale";
   const previousRunState = useRef<RunState>("idle");
 
@@ -306,7 +347,23 @@ function Editor({ spec, onReset, solutionMode = false, onRun, onSnapshot, canOpe
     previousFullscreen.current = isFullscreen;
   }, [isFullscreen, readOnly]);
 
+  /** The only way a run starts: the Run tests key (or Run again in the results). */
   function startRun() {
+    if (armed.size > 0) {
+      // Apply the armed failures first; the run plays once the board has re-rendered with them.
+      const ids = [...armed];
+      setControls((c) => ({ ...c, perNode: { ...c.perNode, ...Object.fromEntries(ids.map((id) => [id, { ...c.perNode[id], down: 1 }])) } }));
+      setArmed(new Set());
+      setQueuedRun((n) => n + 1);
+      return;
+    }
+    playRun();
+  }
+  useEffect(() => {
+    if (queuedRun > 0) playRun();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queuedRun]);
+  function playRun() {
     onRun?.();
     clearTimers();
     setResultsOpen(false);
@@ -394,11 +451,11 @@ function Editor({ spec, onReset, solutionMode = false, onRun, onSnapshot, canOpe
   }
   const ctx: Ctx = useMemo(
     () => ({
-      tiers: new Map(shownResult.tiers.map((t) => [t.id, t])), cfg: shownCfg, reachable, selected, drawerId, hit,
+      tiers: new Map(shownResult.tiers.map((t) => [t.id, t])), cfg: shownCfg, reachable, selected, drawerId, hit, armed: view ? EMPTY_SET : armed,
       locked: runPhase !== null, running: runPhase !== null, ghost: readOnly ? compare?.nodes : undefined, readOnly, openSettings, focus,
       nameOf: names.nameOf, sizeLabel: names.sizeText,
     }),
-    [shownResult, shownCfg, reachable, selected, drawerId, hit, runPhase, focus, readOnly, compare, names, openSettings],
+    [shownResult, shownCfg, reachable, selected, drawerId, hit, armed, view, runPhase, focus, readOnly, compare, names, openSettings],
   );
 
   const shownEdges: Edge<FlowData>[] = edges.map((e) => {
@@ -439,10 +496,18 @@ function Editor({ spec, onReset, solutionMode = false, onRun, onSnapshot, canOpe
     setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
     setSelected(null);
     setDrawerId(null);
+    setArmed((a) => { if (!a.has(id)) return a; const next = new Set(a); next.delete(id); return next; });
   }
   const setProp = (id: string, key: string, value: number | string) =>
     setControls((c) => ({ ...c, perNode: { ...c.perNode, [id]: { ...c.perNode[id], [key]: value } } }));
-  const toggleDown = (id: string) => setProp(id, "down", controls.perNode[id]?.down ? 0 : 1);
+  /** A part that is down comes back at once. A working part is only armed: it breaks on the next run. */
+  const toggleDown = (id: string) => {
+    if (controls.perNode[id]?.down) {
+      setProp(id, "down", 0);
+      return;
+    }
+    setArmed((a) => { const next = new Set(a); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  };
 
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -590,17 +655,7 @@ function Editor({ spec, onReset, solutionMode = false, onRun, onSnapshot, canOpe
                 </button>
               </>
             ) : null}
-            {!isFullscreen ? <div role="group" aria-label="Names" className="lab-mono flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-wider text-slate-300">
-              <span>Names</span>
-              <span className="flex overflow-hidden rounded-[4px] border border-slate-500">
-                {(["generic", "aws"] as const).map((m) => (
-                  <button key={m} type="button" aria-pressed={names.mode === m} data-testid={`names-${m}`} onClick={() => names.setMode(m)}
-                    className={`px-1.5 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 ${names.mode === m ? "bg-sky-300 text-slate-900" : "text-slate-200 hover:bg-white/10"}`}>
-                    {m === "aws" ? "AWS" : "Generic"}
-                  </button>
-                ))}
-              </span>
-            </div> : null}
+            <NamesToggle />
             {ran ? (
               <button type="button" onClick={() => setResultsOpen(true)} key={report.passed} className={`lab-stamp lab-mono rounded-[4px] border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10 ${report.allPass ? "border-emerald-300 text-emerald-300" : "border-red-300 text-red-300"}`} data-testid="score-chip" title="Open detailed results">
                 {report.allPass ? `${report.total}/${report.total} passed` : `${report.passed}/${report.total} checks`}
@@ -632,7 +687,7 @@ function Editor({ spec, onReset, solutionMode = false, onRun, onSnapshot, canOpe
             {running ? (
               <button type="button" onClick={skipRun} className={`${HEAD_BTN} border border-slate-500`}>Skip to results</button>
             ) : null}
-            {onToggleFullscreen ? (
+            {onToggleFullscreen && !isFullscreen ? (
               <button
                 type="button"
                 onClick={onToggleFullscreen}
@@ -666,6 +721,11 @@ function Editor({ spec, onReset, solutionMode = false, onRun, onSnapshot, canOpe
             >
               <svg className="size-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="m8 5 11 7-11 7V5Z" /></svg>
               {running ? "Testing..." : runState === "idle" ? "Run tests" : "Run again"}
+              {armed.size > 0 && !running ? (
+                <span className="rounded-full bg-red-500 px-1.5 py-px text-[9.5px] text-white" data-testid="armed-count" title={`${armed.size} armed to break on this run`}>
+                  {armed.size} armed
+                </span>
+              ) : null}
             </button>
           </div>
         </div>
@@ -689,102 +749,102 @@ function Editor({ spec, onReset, solutionMode = false, onRun, onSnapshot, canOpe
           />
         ) : null}
 
-        {isFullscreen && componentsOpen && !readOnly ? (
-          <aside className="custom-scrollbar absolute left-3 top-[58px] z-40 max-h-[calc(100%-72px)] w-[min(330px,calc(100%-24px))] overflow-y-auto rounded-[12px] border border-slate-600 bg-[color:var(--lab-module)] shadow-2xl" role="dialog" aria-label="Components">
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-[color:var(--lab-module)] px-4 py-3">
-              <div>
-                <div className="lab-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[color:var(--lab-accent)]">Components</div>
-                <p className="mt-1 text-[12px] text-muted-foreground">Add a part to the canvas. You can drag it or click once.</p>
-              </div>
-              <button type="button" onClick={() => setComponentsOpen(false)} className="grid size-8 shrink-0 place-items-center rounded-[6px] border border-border text-lg text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close components">×</button>
-            </div>
-            <div className="space-y-4 p-3">
-              {palette.map((group) => (
-                <section key={group.group}>
-                  <h3 className="lab-mono mb-1.5 px-1 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{group.group}</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {group.kinds.map((kind) => (
-                      <button
-                        key={kind}
-                        type="button"
-                        draggable={!locked}
-                        disabled={locked}
-                        onDragStart={(event) => { event.dataTransfer.setData(DRAG_TYPE, kind); event.dataTransfer.effectAllowed = "move"; }}
-                        onClick={() => { addNode(kind); setComponentsOpen(false); }}
-                        className="flex min-h-14 items-center gap-2 rounded-[8px] border border-border bg-card px-2.5 py-2 text-left shadow-sm transition-colors hover:border-[color:var(--lab-accent)] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-[5px]" style={{ backgroundColor: tint(colorOf(kind), 14), color: colorOf(kind) }}><KindGlyph kind={kind} size={17} /></span>
-                        <span className="text-[11px] font-semibold leading-tight text-foreground">{names.nameOf(kind)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </aside>
-        ) : null}
-
-        {isFullscreen && challengeOpen && !readOnly ? (
-          <aside className="custom-scrollbar absolute right-3 top-[58px] z-40 max-h-[calc(100%-72px)] w-[min(400px,calc(100%-24px))] overflow-y-auto rounded-[12px] border border-slate-600 bg-[color:var(--lab-module)] shadow-2xl" role="dialog" aria-label="Challenge brief">
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-[color:var(--lab-module)] px-5 py-4">
-              <div>
-                <div className="lab-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[color:var(--lab-accent)]">Challenge brief</div>
-                <h2 className="lab-display mt-1 text-[17px] font-semibold leading-snug text-foreground">Build a design that passes every check</h2>
-              </div>
-              <button type="button" onClick={() => setChallengeOpen(false)} className="grid size-8 shrink-0 place-items-center rounded-[6px] border border-border text-lg text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close challenge">×</button>
-            </div>
-            <div className="space-y-5 p-5">
-              <section>
-                <h3 className="lab-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">The problem</h3>
-                <p className="mt-2 text-[13px] leading-6 text-foreground">{names.text(spec.scenario)}</p>
-              </section>
-
-              <section>
-                <h3 className="lab-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Your design must</h3>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {typeof targets.rps === "number" ? <div className="rounded-[8px] border border-border bg-muted/45 p-3"><div className="text-[10px] text-muted-foreground">Handle traffic</div><div className="lab-mono mt-1 text-[13px] font-bold text-foreground">{targets.rps.toLocaleString()} req/s</div></div> : null}
-                  {typeof targets.p99Ms === "number" ? <div className="rounded-[8px] border border-border bg-muted/45 p-3"><div className="text-[10px] text-muted-foreground">Stay fast</div><div className="lab-mono mt-1 text-[13px] font-bold text-foreground">p99 under {targets.p99Ms} ms</div></div> : null}
-                  {typeof targets.availability === "number" ? <div className="rounded-[8px] border border-border bg-muted/45 p-3"><div className="text-[10px] text-muted-foreground">Stay available</div><div className="lab-mono mt-1 text-[13px] font-bold text-foreground">{(targets.availability * 100).toFixed(1)}% uptime</div></div> : null}
-                  {typeof targets.budgetPerHour === "number" ? <div className="rounded-[8px] border border-border bg-muted/45 p-3"><div className="text-[10px] text-muted-foreground">Stay in budget</div><div className="lab-mono mt-1 text-[13px] font-bold text-foreground">Under ${targets.budgetPerHour.toFixed(2)}/hr</div></div> : null}
-                </div>
-              </section>
-
-              <section>
-                <h3 className="lab-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">How to work</h3>
-                <ol className="mt-2 space-y-2">
-                  {["Open Components and add anything your design needs.", "Select a component to change its size, count, or zones. Drag between the dots to connect parts.", "Press Run tests. Fix the failed checks, then run again."].map((step, index) => (
-                    <li key={step} className="flex gap-3 rounded-[8px] border border-border bg-card p-3 text-[12px] leading-5 text-foreground">
-                      <span className="lab-mono grid size-5 shrink-0 place-items-center rounded-full bg-[color:var(--lab-accent)] text-[9px] font-bold text-[color:var(--lab-on-accent)]">{index + 1}</span>
-                      {step}
-                    </li>
-                  ))}
-                </ol>
-              </section>
-
-              {spec.hints.length > 0 ? (
-                <details className="rounded-[8px] border border-border bg-card px-3 py-2.5">
-                  <summary className="cursor-pointer text-[12px] font-semibold text-foreground">Need a hint?</summary>
-                  <ul className="mt-2 space-y-2 pl-4 text-[11px] leading-5 text-muted-foreground">
-                    {spec.hints.map((hint) => <li key={hint} className="list-disc">{names.text(hint)}</li>)}
-                  </ul>
-                </details>
-              ) : null}
-
-              <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-                <div role="group" aria-label="Component names" className="lab-mono flex items-center gap-1 text-[9px] font-bold uppercase text-muted-foreground">
-                  {(["generic", "aws"] as const).map((mode) => <button key={mode} type="button" aria-pressed={names.mode === mode} onClick={() => names.setMode(mode)} className={`rounded-[4px] border px-2 py-1 ${names.mode === mode ? "border-[color:var(--lab-accent)] bg-[color:var(--lab-accent)]/10 text-[color:var(--lab-accent)]" : "border-border hover:bg-muted"}`}>{mode === "aws" ? "AWS" : "Generic"}</button>)}
-                </div>
-                <button type="button" onClick={() => setChallengeOpen(false)} className="rounded-[6px] bg-[color:var(--lab-accent)] px-4 py-2 text-[11px] font-bold text-[color:var(--lab-on-accent)] hover:brightness-110">Start designing</button>
-              </div>
-            </div>
-          </aside>
-        ) : null}
-
         <div
-          className={`grid grid-cols-1 overflow-hidden ${isFullscreen ? "" : gridColumns} ${
-            isFullscreen ? "h-[calc(100vh-112px)]" : "@6xl:h-[680px]"
+          className={`relative grid grid-cols-1 overflow-hidden ${isFullscreen ? "" : gridColumns} ${
+            isFullscreen ? "h-[calc(100dvh-164px)] min-h-[420px]" : "@6xl:h-[680px]"
           }`}
         >
+          {/* Full screen overlays open inside the work area, below the top bar however many rows it wraps to. */}
+          {isFullscreen && componentsOpen && !readOnly ? (
+            <aside className="custom-scrollbar absolute left-3 top-3 z-40 max-h-[calc(100%-24px)] w-[min(330px,calc(100%-24px))] overflow-y-auto rounded-[12px] border border-slate-600 bg-[color:var(--lab-module)] shadow-2xl" role="dialog" aria-label="Components">
+              <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-[color:var(--lab-module)] px-4 py-3">
+                <div>
+                  <div className="lab-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[color:var(--lab-accent)]">Components</div>
+                  <p className="mt-1 text-[12px] text-muted-foreground">Add a part to the canvas. You can drag it or click once.</p>
+                </div>
+                <button type="button" onClick={() => setComponentsOpen(false)} className="grid size-8 shrink-0 place-items-center rounded-[6px] border border-border text-lg text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close components">×</button>
+              </div>
+              <div className="space-y-4 p-3">
+                {palette.map((group) => (
+                  <section key={group.group}>
+                    <h3 className="lab-mono mb-1.5 px-1 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{group.group}</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {group.kinds.map((kind) => (
+                        <button
+                          key={kind}
+                          type="button"
+                          draggable={!locked}
+                          disabled={locked}
+                          onDragStart={(event) => { event.dataTransfer.setData(DRAG_TYPE, kind); event.dataTransfer.effectAllowed = "move"; }}
+                          onClick={() => { addNode(kind); setComponentsOpen(false); }}
+                          className="flex min-h-14 items-center gap-2 rounded-[8px] border border-border bg-card px-2.5 py-2 text-left shadow-sm transition-colors hover:border-[color:var(--lab-accent)] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-[5px]" style={{ backgroundColor: tint(colorOf(kind), 14), color: colorOf(kind) }}><KindGlyph kind={kind} size={17} /></span>
+                          <span className="text-[11px] font-semibold leading-tight text-foreground">{names.nameOf(kind)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </aside>
+          ) : null}
+
+          {isFullscreen && challengeOpen && !readOnly ? (
+            <aside className="custom-scrollbar absolute right-3 top-3 z-40 max-h-[calc(100%-24px)] w-[min(400px,calc(100%-24px))] overflow-y-auto rounded-[12px] border border-slate-600 bg-[color:var(--lab-module)] shadow-2xl" role="dialog" aria-label="Challenge brief">
+              <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-[color:var(--lab-module)] px-5 py-4">
+                <div>
+                  <div className="lab-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[color:var(--lab-accent)]">Challenge brief</div>
+                  <h2 className="lab-display mt-1 text-[17px] font-semibold leading-snug text-foreground">Build a design that passes every check</h2>
+                </div>
+                <button type="button" onClick={() => setChallengeOpen(false)} className="grid size-8 shrink-0 place-items-center rounded-[6px] border border-border text-lg text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close challenge">×</button>
+              </div>
+              <div className="space-y-5 p-5">
+                <section>
+                  <h3 className="lab-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">The problem</h3>
+                  <p className="mt-2 text-[13px] leading-6 text-foreground">{names.text(spec.scenario)}</p>
+                </section>
+
+                <section>
+                  <h3 className="lab-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Your design must</h3>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {typeof targets.rps === "number" ? <div className="rounded-[8px] border border-border bg-muted/45 p-3"><div className="text-[10px] text-muted-foreground">Handle traffic</div><div className="lab-mono mt-1 text-[13px] font-bold text-foreground">{targets.rps.toLocaleString()} req/s</div></div> : null}
+                    {typeof targets.p99Ms === "number" ? <div className="rounded-[8px] border border-border bg-muted/45 p-3"><div className="text-[10px] text-muted-foreground">Stay fast</div><div className="lab-mono mt-1 text-[13px] font-bold text-foreground">p99 under {targets.p99Ms} ms</div></div> : null}
+                    {typeof targets.availability === "number" ? <div className="rounded-[8px] border border-border bg-muted/45 p-3"><div className="text-[10px] text-muted-foreground">Stay available</div><div className="lab-mono mt-1 text-[13px] font-bold text-foreground">{(targets.availability * 100).toFixed(1)}% uptime</div></div> : null}
+                    {typeof targets.budgetPerHour === "number" ? <div className="rounded-[8px] border border-border bg-muted/45 p-3"><div className="text-[10px] text-muted-foreground">Stay in budget</div><div className="lab-mono mt-1 text-[13px] font-bold text-foreground">Under ${targets.budgetPerHour.toFixed(2)}/hr</div></div> : null}
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="lab-mono text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">How to work</h3>
+                  <ol className="mt-2 space-y-2">
+                    {["Open Components and add anything your design needs.", "Select a component to change its size, count, or zones. Drag between the dots to connect parts.", "Press Run tests. Fix the failed checks, then run again."].map((step, index) => (
+                      <li key={step} className="flex gap-3 rounded-[8px] border border-border bg-card p-3 text-[12px] leading-5 text-foreground">
+                        <span className="lab-mono grid size-5 shrink-0 place-items-center rounded-full bg-[color:var(--lab-accent)] text-[9px] font-bold text-[color:var(--lab-on-accent)]">{index + 1}</span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+
+                {spec.hints.length > 0 ? (
+                  <details className="rounded-[8px] border border-border bg-card px-3 py-2.5">
+                    <summary className="cursor-pointer text-[12px] font-semibold text-foreground">Need a hint?</summary>
+                    <ul className="mt-2 space-y-2 pl-4 text-[11px] leading-5 text-muted-foreground">
+                      {spec.hints.map((hint) => <li key={hint} className="list-disc">{names.text(hint)}</li>)}
+                    </ul>
+                  </details>
+                ) : null}
+
+
+                <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+                  <p className="text-[11px] text-muted-foreground">Nothing runs until you press Run tests.</p>
+                  <button type="button" onClick={() => setChallengeOpen(false)} className="rounded-[6px] bg-[color:var(--lab-accent)] px-4 py-2 text-[11px] font-bold text-[color:var(--lab-on-accent)] hover:brightness-110">Start designing</button>
+                </div>
+              </div>
+            </aside>
+          ) : null}
+
           {/* Palette: a row you scroll on a phone, a column on a wider board. In the solution view, the list of parts. */}
           {!isFullscreen ? (paletteCollapsed ? (
             <div className="flex min-h-[52px] items-center justify-center border-b border-border bg-card/50 @2xl:min-h-0 @2xl:border-b-0 @2xl:border-r @6xl:h-full" role="group" aria-label="Collapsed components sidebar">
@@ -922,6 +982,7 @@ function Editor({ spec, onReset, solutionMode = false, onRun, onSnapshot, canOpe
                   tier={result.tiers.find((t) => t.id === drawerNode.id)}
                   onChange={(key, value) => setProp(drawerNode.id, key, value)}
                   onToggleDown={() => toggleDown(drawerNode.id)}
+                  armed={armed.has(drawerNode.id)}
                   onRemove={() => removeNode(drawerNode.id)}
                   onClose={closeDrawer}
                 />
@@ -936,6 +997,7 @@ function Editor({ spec, onReset, solutionMode = false, onRun, onSnapshot, canOpe
                   <span><span className="font-medium text-foreground">Settings</span> hover or tap a component, then its icon</span>
                   <span><span className="font-medium text-foreground">Link</span> drag from any dot to another component</span>
                   <span><span className="font-medium text-foreground">Remove</span> select it, press Delete</span>
+                  <span><span className="font-medium text-foreground">Break</span> Break it in a part's settings arms it; it fails when you press Run tests</span>
                 </>
               )}
               {hasCache ? (
@@ -1065,6 +1127,26 @@ export function HldBoard({
             : ""
       }
     >
+      {isFullscreen ? (
+        <div className="sticky top-0 z-[60] -mx-2 -mt-2 mb-2 flex items-center justify-between gap-3 border-b border-white/10 bg-slate-950/95 px-3 py-2 backdrop-blur sm:-mx-4 sm:-mt-4 sm:mb-3 sm:px-4 md:-mx-5 md:-mt-5 md:px-5" data-testid="fullscreen-bar">
+          <p className="lab-mono m-0 flex min-w-0 items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-slate-300" data-testid="esc-hint">
+            <kbd className="rounded-[4px] border border-slate-500 border-b-2 bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-100">Esc</kbd>
+            <span className="truncate">to exit full screen</span>
+          </p>
+          <button
+            type="button"
+            onClick={exitFullscreen}
+            data-testid="exit-fullscreen"
+            title="Exit full screen (Esc)"
+            className="lab-mono flex min-h-9 shrink-0 items-center gap-2 rounded-[6px] border border-slate-400 bg-white/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+          >
+            <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+            </svg>
+            Exit full screen
+          </button>
+        </div>
+      ) : null}
       <div className={isFullscreen ? "mx-auto w-full max-w-[1680px] pb-6" : ""}>
         {/* The learner's board stays mounted while the solution is open, so their work is never lost. */}
         <div hidden={mode === "solution"}>

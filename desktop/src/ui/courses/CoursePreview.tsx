@@ -172,7 +172,9 @@ export function CoursePreview({
               <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-medium text-muted-foreground">
                 {current.category === 'TECH'
                   ? 'Technical course'
-                  : 'Soft skills'}
+                  : current.category === 'CLOUD_DEVOPS'
+                    ? 'Cloud and DevOps'
+                    : 'Soft skills'}
               </span>
               <h1
                 ref={heading}

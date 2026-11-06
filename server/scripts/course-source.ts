@@ -12,6 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { load as loadYaml } from "js-yaml";
 import { z } from "zod";
+import { COURSE_CATEGORY_SOURCE_VALUES } from "../src/shared/domain/enums.js";
 import { findCourseFamily } from "../src/shared/lib/course-tracks.js";
 import { isSafeProductName } from "../src/shared/lib/content-tokens.js";
 import { ASSISTANT_GUIDANCE_MAX, ASSISTANT_STARTERS_MAX, ASSISTANT_STARTER_MAX, assistantEfforts } from "../src/services/ai/chapter-qa/assistant.js";
@@ -98,8 +99,8 @@ export const CourseManifestSchema = z.object({
   projectGoal: z.string().min(1),
   difficulty: z.enum(["Beginner", "Medium", "Advanced"]),
   estimatedHours: z.number().int().positive(),
-  /** Catalog grouping: "tech" (default) or "soft-skills". */
-  category: z.enum(["tech", "soft-skills"]).default("tech"),
+  /** Catalog grouping: "tech" (default), "soft-skills" or "cloud-devops". */
+  category: z.enum(COURSE_CATEGORY_SOURCE_VALUES).default("tech"),
   /** Learner-facing topic within the broad category, for example AI, Full Stack, or AWS. */
   subcategory: z.string().trim().min(1).max(80).optional(),
   /** Normalized search and filtering terms displayed in Explore courses. */

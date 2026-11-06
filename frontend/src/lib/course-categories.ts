@@ -19,6 +19,12 @@ export const COURSE_CATEGORY_INFO: Array<{
     label: "Soft skills",
     description: "Decide, communicate and work well with people.",
   },
+  {
+    value: "CLOUD_DEVOPS",
+    param: "cloud-devops",
+    label: "Cloud and DevOps",
+    description: "Containers, cloud services and the systems that keep software running.",
+  },
 ];
 
 export function categoryFromParam(param: string | undefined): CourseCategory | null {

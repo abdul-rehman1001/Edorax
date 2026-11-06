@@ -158,7 +158,7 @@ function Sheet({ mode }: { mode: NameMode }) {
           ))}
         </Specimen>
 
-        <Specimen title="Settings cassette: a server" note="Grows beside the part it belongs to. Segmented sizes, steppers for counts, a switch for autoscaling, and a Break it key.">
+        <Specimen title="Settings cassette: a server" note="Grows beside the part it belongs to. Segmented sizes, steppers for counts, a switch for autoscaling, and a Break it key that arms the part to fail on the next run.">
           <SettingsDrawer id="g1" kind="app-server" floating={false} cfg={cfgFor("app-server", { count: 3, azs: 2 })} tier={tierFor("app-server")} onChange={noop} onToggleDown={noop} onRemove={noop} />
         </Specimen>
         <Specimen title="Settings cassette: a cache" note="Shows what the cache was asked, what it answered itself (hit) and what it passed on (miss).">
