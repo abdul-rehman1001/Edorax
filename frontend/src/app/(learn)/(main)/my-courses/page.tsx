@@ -17,8 +17,8 @@ export default async function MenteeCoursesPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
       <header>
-        <h1 className="text-[32px] leading-tight tracking-[-0.035em] sm:text-[40px]">Courses</h1>
-        <p className="mt-2 max-w-2xl text-lg text-muted-foreground">A little at a time. Continue a chapter or go back over one.</p>
+        <h1 className="text-[32px] leading-tight tracking-[-0.035em] sm:text-[40px]">My courses</h1>
+        <p className="mt-2 max-w-2xl text-lg text-muted-foreground">Pick up where you left off, review your lessons, or open a course you have joined.</p>
         <div className="mt-6">
           <CoursesTabs active="mine" />
         </div>

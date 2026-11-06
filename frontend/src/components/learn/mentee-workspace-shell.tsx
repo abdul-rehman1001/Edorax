@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenText, CircleHelp, Home, Trophy, TrendingUp, type LucideIcon } from "lucide-react";
+import { BookOpenText, CircleHelp, Compass, Home, Trophy, TrendingUp, type LucideIcon } from "lucide-react";
 import { WorkspaceAccountMenu } from "@/components/workspace/workspace-account-menu";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
@@ -47,13 +47,13 @@ export function MenteeWorkspaceShell({
   const items: LearnerNavItem[] = [
     { label: "Home", href: "/dashboard", icon: Home, active: pathname === "/dashboard" },
     {
-      label: "Courses",
-      // Opens on every course; "My courses" is the tab next to it.
-      href: "/catalog",
+      label: "My courses",
+      href: "/my-courses",
       icon: BookOpenText,
-      active: pathname === "/my-courses" || pathname.startsWith("/catalog"),
+      active: pathname === "/my-courses",
       count: assignedCourses,
     },
+    { label: "Explore courses", mobileLabel: "Explore", href: "/catalog", icon: Compass, active: pathname.startsWith("/catalog") },
     { label: "Progress", href: "/progress", icon: TrendingUp, active: pathname === "/progress" },
     { label: "Leaderboard", mobileLabel: "Ranks", href: "/leaderboard", icon: Trophy, active: pathname === "/leaderboard" },
     {
