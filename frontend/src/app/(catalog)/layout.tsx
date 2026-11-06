@@ -48,11 +48,11 @@ export default async function CatalogLayout({ children }: { children: React.Reac
           </Link>
           <nav aria-label="Main" className="ml-auto flex items-center gap-1 sm:gap-3">
             <Link href="/catalog" className="hidden px-2 py-3 text-base font-bold text-foreground sm:inline">
-              Courses
+              Explore courses
             </Link>
             {user ? (
-              <Link href="/dashboard" className={buttonVariants()}>
-                Go to my workspace
+              <Link href="/my-courses" className={buttonVariants({ variant: "outline" })}>
+                My courses
               </Link>
             ) : (
               <>

@@ -238,6 +238,11 @@ export async function updateCourseSettings(user: SessionUser, courseId: string, 
     }
   }
 
+  const managed = await prisma.course.findUniqueOrThrow({ where: { id: courseId }, select: { repositorySourceHash: true } });
+  if (managed.repositorySourceHash && (input.pricingType !== "PAID" || priceCents !== 1000 || input.currency.toUpperCase() !== "USD")) {
+    throw new UnprocessableError("Repository-managed courses must be priced at $10 USD.");
+  }
+
   await prisma.course.update({
     where: { id: courseId },
     data: {

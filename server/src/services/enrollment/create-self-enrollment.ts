@@ -7,7 +7,10 @@ export class SelfEnrollmentError extends Error {
     | "COURSE_NOT_FOUND"
     | "NOT_PUBLISHED"
     | "ALREADY_ENROLLED"
-    | "PAYMENT_PENDING";
+    | "PAYMENT_PENDING"
+    | "COUPON_INVALID"
+    | "COUPON_EXHAUSTED"
+    | "COUPON_NOT_APPLICABLE";
   constructor(code: SelfEnrollmentError["code"], message: string) {
     super(message);
     this.name = "SelfEnrollmentError";
@@ -20,11 +23,12 @@ export type SelfEnrollmentResult = {
   courseSlug: string;
   lifecycle: ReturnType<typeof lifecycleForSignedInEnrollment>;
   created: boolean;
+  couponApplied?: boolean;
 };
 
 export async function createSelfEnrollment(
   db: PrismaClient,
-  input: { userId: string; courseId: string }
+  input: { userId: string; courseId: string; couponCode?: string }
 ): Promise<SelfEnrollmentResult> {
   const course = await db.course.findUnique({
     where: { id: input.courseId },
@@ -42,19 +46,53 @@ export async function createSelfEnrollment(
     throw new SelfEnrollmentError("NOT_PUBLISHED", "This course is not open for enrollment.");
   }
 
-  const existing = await db.enrollment.findUnique({
-    where: { courseId_userId: { courseId: course.id, userId: input.userId } },
-  });
-  if (existing) {
-    if (existing.lifecycle === "PAYMENT_REQUIRED") {
-      throw new SelfEnrollmentError("PAYMENT_PENDING", "Complete payment to access this course.");
+  const couponCode = input.couponCode?.trim().toUpperCase();
+  const defaultLifecycle = lifecycleForSignedInEnrollment(course.pricingType);
+
+  const result = await db.$transaction(async (tx) => {
+    let lifecycle = defaultLifecycle;
+    const existing = await tx.enrollment.findUnique({
+      where: { courseId_userId: { courseId: course.id, userId: input.userId } },
+      include: { payment: true },
+    });
+    if (existing && (!couponCode || existing.lifecycle !== "PAYMENT_REQUIRED")) {
+      if (existing.lifecycle === "PAYMENT_REQUIRED") {
+        throw new SelfEnrollmentError("PAYMENT_PENDING", "Complete payment or apply a coupon to access this course.");
+      }
+      throw new SelfEnrollmentError("ALREADY_ENROLLED", "You are already enrolled in this course.");
     }
-    throw new SelfEnrollmentError("ALREADY_ENROLLED", "You are already enrolled in this course.");
-  }
 
-  const lifecycle = lifecycleForSignedInEnrollment(course.pricingType);
+    let coupon: { id: string; percentOff: number } | null = null;
+    let amountCents = course.priceCents;
+    if (couponCode) {
+      if (course.pricingType !== "PAID") throw new SelfEnrollmentError("COUPON_NOT_APPLICABLE", "Coupons are only available for paid courses.");
+      const found = await tx.instructorCoupon.findUnique({ where: { code: couponCode } });
+      if (!found || found.courseId !== course.id || !found.active || (found.expiresAt && found.expiresAt <= new Date())) {
+        throw new SelfEnrollmentError("COUPON_INVALID", "This coupon is invalid or expired.");
+      }
+      const reserved = await tx.instructorCoupon.updateMany({
+        where: { id: found.id, active: true, redemptionCount: { lt: found.maxRedemptions }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+        data: { redemptionCount: { increment: 1 } },
+      });
+      if (!reserved.count) throw new SelfEnrollmentError("COUPON_EXHAUSTED", "This coupon has no redemptions remaining.");
+      coupon = { id: found.id, percentOff: found.percentOff };
+      amountCents = Math.round(course.priceCents * (100 - found.percentOff) / 100);
+      lifecycle = found.percentOff === 100 ? "ACTIVE" : "PAYMENT_REQUIRED";
+    }
 
-  const enrollment = await db.$transaction(async (tx) => {
+    if (existing) {
+      const accessGranted = lifecycle === "ACTIVE";
+      const row = await tx.enrollment.update({ where: { id: existing.id }, data: {
+        lifecycle, status: accessGranted ? "IN_PROGRESS" : "ASSIGNED", startedAt: accessGranted ? existing.startedAt ?? new Date() : null,
+      } });
+      if (existing.payment) await tx.payment.update({ where: { enrollmentId: existing.id }, data: accessGranted
+        ? { amountCents: 0, status: "SUCCEEDED", provider: "coupon", paidAt: new Date() }
+        : { amountCents, status: "PENDING", provider: null, paidAt: null } });
+      else if (!accessGranted) await tx.payment.create({ data: { enrollmentId: existing.id, amountCents, currency: course.currency, status: "PENDING" } });
+      if (coupon) await tx.instructorCouponRedemption.create({ data: { couponId: coupon.id, enrollmentId: existing.id, userId: input.userId, percentOff: coupon.percentOff } });
+      return { row, lifecycle, created: false, couponApplied: Boolean(coupon) };
+    }
+
     const assignment = await assignmentForNewEnrollment(tx, course.id);
     const row = await tx.enrollment.create({
       data: {
@@ -72,21 +110,23 @@ export async function createSelfEnrollment(
       await tx.payment.create({
         data: {
           enrollmentId: row.id,
-          amountCents: course.priceCents,
+          amountCents,
           currency: course.currency,
           status: "PENDING",
-          provider: "stub",
         },
       });
     }
 
-    return row;
+    if (coupon) await tx.instructorCouponRedemption.create({ data: { couponId: coupon.id, enrollmentId: row.id, userId: input.userId, percentOff: coupon.percentOff } });
+
+    return { row, lifecycle, created: true, couponApplied: Boolean(coupon) };
   });
 
   return {
-    enrollmentId: enrollment.id,
+    enrollmentId: result.row.id,
     courseSlug: course.slug,
-    lifecycle,
-    created: true,
+    lifecycle: result.lifecycle,
+    created: result.created,
+    couponApplied: result.couponApplied,
   };
 }

@@ -69,6 +69,7 @@ export default async function AdminUsersPage({
 
   return (
     <div>
+      <Link href="/admin/course-access" className="inline-block mb-4 underline">Review course access requests</Link>
       <AdminPageHeader
         eyebrow="Accounts"
         title="Users"

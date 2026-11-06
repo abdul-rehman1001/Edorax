@@ -8,6 +8,7 @@ import { UnprocessableError } from "../../utils/errors.js";
 import type { SessionUser } from "../../types/auth.js";
 import { notifyMenteeCourseEnrollment, notifyMentorNewEnrollment } from "../notifications/events.js";
 import { dispatchNotification } from "../notifications/service.js";
+import { lifecycleForSignedInEnrollment } from "../enrollment/lifecycle.js";
 import { assignmentForNewEnrollment } from "../courses/variant-assignment.js";
 import { couponUnlocksContent, issueCouponForEnrollment } from "../coupons/issue.js";
 import { resolveCouponOrganizationForCourse } from "../coupons/resolve-org.js";
@@ -62,6 +63,7 @@ export async function assignByEmails(user: SessionUser, courseId: string, emails
     throw new UnprocessableError("Enter at least one valid email address.", "VALIDATION_ERROR", ["Enter at least one valid email address."]);
   }
   requirePublished(course, "assigning it to mentees");
+  const pricing = await prisma.course.findUniqueOrThrow({ where: { id: course.id }, select: { pricingType: true, priceCents: true, currency: true } });
 
   const couponOrg = await resolveCouponOrganizationForCourse(course.id);
   const enrolledEmails: string[] = [];
@@ -76,6 +78,7 @@ export async function assignByEmails(user: SessionUser, courseId: string, emails
         const old = await tx.enrollment.findUnique({ where: { courseId_userId: { courseId: course.id, userId: existingUser.id } }, select: { id: true } });
         if (old) return old;
         const assignment = await assignmentForNewEnrollment(tx, course.id);
+        const lifecycle = lifecycleForSignedInEnrollment(pricing.pricingType);
         const created = await tx.enrollment.upsert({
           where: { courseId_userId: { courseId: course.id, userId: existingUser.id } },
           update: {},
@@ -86,11 +89,12 @@ export async function assignByEmails(user: SessionUser, courseId: string, emails
             status: "ASSIGNED",
             assignedById: user.id,
             source: "DIRECT",
-            lifecycle: "ACTIVE",
+            lifecycle,
             organizationId: couponOrg?.organizationId ?? null,
           },
           select: { id: true },
         });
+        let coveredByCoupon = false;
         if (couponOrg) {
           const coupon = await issueCouponForEnrollment(tx, {
             organizationId: couponOrg.organizationId,
@@ -101,11 +105,15 @@ export async function assignByEmails(user: SessionUser, courseId: string, emails
             assignedById: user.id,
           });
           if (coupon && couponUnlocksContent(coupon.percentOff)) {
+            coveredByCoupon = true;
             await tx.enrollment.update({
               where: { id: created.id },
               data: { lifecycle: "ACTIVE", status: "IN_PROGRESS", startedAt: new Date() },
             });
           }
+        }
+        if (lifecycle === "PAYMENT_REQUIRED" && !coveredByCoupon) {
+          await tx.payment.create({ data: { enrollmentId: created.id, amountCents: pricing.priceCents, currency: pricing.currency, status: "PENDING" } });
         }
         return created;
       });

@@ -6,9 +6,9 @@ import { dispatchNotification } from "../notifications/service.js";
 import { SelfEnrollmentError, createSelfEnrollment } from "./create-self-enrollment.js";
 
 /** Learner enrols themselves from the catalog. Paid courses land in PAYMENT_REQUIRED. */
-export async function selfEnroll(userId: string, courseId: string): Promise<SelfEnrollResult> {
+export async function selfEnroll(userId: string, courseId: string, couponCode?: string): Promise<SelfEnrollResult> {
   try {
-    const result = await createSelfEnrollment(prisma, { userId, courseId });
+    const result = await createSelfEnrollment(prisma, { userId, courseId, couponCode });
     if (result.created) await dispatchNotification(() => notifyMentorNewEnrollment(result.enrollmentId));
     return result;
   } catch (error) {
@@ -22,6 +22,10 @@ export async function selfEnroll(userId: string, courseId: string): Promise<Self
         throw new ConflictError(error.message, ENROLLMENT_ERROR_CODES.PAYMENT_PENDING);
       case "ALREADY_ENROLLED":
         throw new ConflictError(error.message, ENROLLMENT_ERROR_CODES.ALREADY_ENROLLED);
+      case "COUPON_INVALID":
+      case "COUPON_EXHAUSTED":
+      case "COUPON_NOT_APPLICABLE":
+        throw new ConflictError(error.message, error.code);
     }
   }
 }

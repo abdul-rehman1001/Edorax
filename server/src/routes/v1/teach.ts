@@ -18,8 +18,11 @@ import {
   courseInstructorPendingInviteParams,
   chapterSettingsBody,
   courseIdParams,
+  courseCouponParams,
   courseSettingsBody,
   courseSlugParams,
+  createInstructorCouponBody,
+  instructorCouponActiveBody,
   createChapterBody,
   createCourseBody,
   createModuleBody,
@@ -55,6 +58,9 @@ router.post("/courses/:courseId/import/approve", requireZipImport, validate({ pa
 router.post("/courses", validateBody(createCourseBody), teach.createCourse);
 router.get("/courses/:courseSlug/builder", validateParams(courseSlugParams), teach.getCourseBuilder);
 router.get("/courses/:courseSlug/settings", validateParams(courseSlugParams), teach.getCourseSettings);
+router.get("/courses/:courseSlug/coupons", validateParams(courseSlugParams), teach.listCourseCoupons);
+router.post("/courses/:courseId/coupons", validate({ params: courseIdParams, body: createInstructorCouponBody }), teach.createCourseCoupon);
+router.patch("/courses/:courseId/coupons/:couponId", validate({ params: courseCouponParams, body: instructorCouponActiveBody }), teach.setCourseCouponActive);
 router.get("/courses/:courseSlug/preview", validateParams(courseSlugParams), teach.getCourseDraftPreview);
 router.get("/courses/:courseSlug/team", validateParams(courseSlugParams), teach.getCourseTeam);
 router.post("/courses/:courseId/media/:purpose", raw({ type: "image/*", limit: "8mb" }), media.upload);

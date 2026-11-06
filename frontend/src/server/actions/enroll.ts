@@ -38,17 +38,21 @@ async function leaveEnrollmentForMascot(courseId: string) {
 export async function selfEnrollInCourseAction(formData: FormData): Promise<void> {
   const courseId = String(formData.get("courseId") ?? "");
   const courseSlug = String(formData.get("courseSlug") ?? "");
+  const couponCode = String(formData.get("couponCode") ?? "").trim();
   const returnTo = safeRedirectTo(String(formData.get("returnTo") ?? "").trim());
   if (!courseId || !courseSlug) throw new Error("Missing course.");
 
   let result: SelfEnrollResult;
   try {
-    result = await serverApiFetch<SelfEnrollResult>("/api/v1/enrollments", { method: "POST", json: { courseId } });
+    result = await serverApiFetch<SelfEnrollResult>("/api/v1/enrollments", { method: "POST", json: { courseId, ...(couponCode ? { couponCode } : {}) } });
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       // Already enrolled or awaiting payment: send the learner where they can continue.
       if (error.code === ENROLLMENT_ERROR_CODES.PAYMENT_PENDING) redirect(`/courses/${courseSlug}/checkout`);
       if (error.code === ENROLLMENT_ERROR_CODES.ALREADY_ENROLLED) redirect(returnTo ?? `/courses/${courseSlug}`);
+      if ([ENROLLMENT_ERROR_CODES.COUPON_INVALID, ENROLLMENT_ERROR_CODES.COUPON_EXHAUSTED, ENROLLMENT_ERROR_CODES.COUPON_NOT_APPLICABLE].some((code) => code === error.code)) {
+        redirect(`/courses/${encodeURIComponent(courseSlug)}/checkout?coupon_error=${encodeURIComponent(error.code ?? "invalid")}`);
+      }
       throw new Error(error.message);
     }
     throw error;
@@ -56,22 +60,26 @@ export async function selfEnrollInCourseAction(formData: FormData): Promise<void
 
   refreshLearnerPages();
   if (result.lifecycle === "PAYMENT_REQUIRED") {
-    redirect(`/courses/${result.courseSlug}/checkout`);
+    try {
+      await serverApiFetch(`/api/v1/enrollments/${encodeURIComponent(result.enrollmentId)}/request-access`, { method: "POST" });
+    } catch {
+      redirect(`/courses/${result.courseSlug}/checkout?request_failed=1`);
+    }
+    redirect(`/courses/${result.courseSlug}/checkout?requested=1`);
   }
   await leaveEnrollmentForMascot(courseId);
   redirect(returnTo ?? `/courses/${result.courseSlug}`);
 }
 
-/** Simulates a successful checkout until a payment provider is wired. */
-export async function completeEnrollmentPaymentStubAction(formData: FormData): Promise<void> {
+/** Ask an administrator to arrange payment and approve access. */
+export async function requestCourseAccessAction(formData: FormData): Promise<void> {
   const enrollmentId = String(formData.get("enrollmentId") ?? "");
-  const courseId = String(formData.get("courseId") ?? "");
-  if (!enrollmentId) throw new Error("Missing enrollment.");
-
-  const result = await serverApiFetch<{ courseSlug: string }>(`/api/v1/enrollments/${enrollmentId}/payment-stub`, {
-    method: "POST",
-  });
-  refreshLearnerPages();
-  if (courseId) await leaveEnrollmentForMascot(courseId);
-  redirect(`/courses/${result.courseSlug}`);
+  const courseSlug = String(formData.get("courseSlug") ?? "");
+  if (!enrollmentId || !courseSlug) throw new Error("Missing enrollment.");
+  try {
+    await serverApiFetch(`/api/v1/enrollments/${encodeURIComponent(enrollmentId)}/request-access`, { method: "POST" });
+  } catch {
+    redirect(`/courses/${encodeURIComponent(courseSlug)}/checkout?request_failed=1`);
+  }
+  redirect(`/courses/${encodeURIComponent(courseSlug)}/checkout?requested=1`);
 }

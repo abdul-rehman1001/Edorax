@@ -1,0 +1,2 @@
+ALTER TABLE "InstructorCoupon" ADD COLUMN "percentOff" INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE "InstructorCouponRedemption" ADD COLUMN "percentOff" INTEGER NOT NULL DEFAULT 100;
