@@ -21,11 +21,12 @@ export async function createCourseCoupon(user: SessionUser, courseId: string, in
   const owned = await requireCourseById(user, courseId);
   const course = await prisma.course.findUniqueOrThrow({ where: { id: owned.id }, select: { pricingType: true } });
   if (course.pricingType !== "PAID") throw new UnprocessableError("Coupons can only be created for paid courses.", "COUPON_REQUIRES_PAID_COURSE");
-  const code = normalizeCode(input.code);
+  const code = input.code ? normalizeCode(input.code) : null;
+  if (!code && !input.autoApply) throw new UnprocessableError("Enter a coupon code or enable automatic discount.", "VALIDATION_ERROR");
   const expiresAt = input.expiresAt ? new Date(input.expiresAt) : null;
   if (expiresAt && expiresAt <= new Date()) throw new UnprocessableError("The expiration must be in the future.", "VALIDATION_ERROR");
   try {
-    const coupon = await prisma.instructorCoupon.create({ data: { courseId, createdById: user.id, code, label: input.label, percentOff: input.percentOff, maxRedemptions: input.maxRedemptions, expiresAt } });
+    const coupon = await prisma.instructorCoupon.create({ data: { courseId, createdById: user.id, code, label: input.label, percentOff: input.percentOff, maxRedemptions: input.maxRedemptions, expiresAt, autoApply: input.autoApply } });
     return { ...coupon, remaining: coupon.maxRedemptions, expiresAt: coupon.expiresAt?.toISOString() ?? null, createdAt: coupon.createdAt.toISOString() };
   } catch (error) {
     if ((error as { code?: string }).code === "P2002") throw new ConflictError("That coupon code is already in use.", "COUPON_CODE_TAKEN");

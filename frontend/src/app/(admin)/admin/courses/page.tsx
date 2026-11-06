@@ -124,6 +124,8 @@ export default async function AdminCoursesPage({
                     {course.allocationCount}
                   </AdminTableCell>
                   <AdminTableCell>
+                    <div className="flex flex-wrap gap-2">
+                    <Link href={`/admin/courses/${encodeURIComponent(course.id)}/coupons`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Discounts</Link>
                     <AdminActionForm
                       action={setCourseStatusAction}
                       submitLabel="Change status"
@@ -158,6 +160,7 @@ export default async function AdminCoursesPage({
                     >
                       <input type="hidden" name="courseId" value={course.id} />
                     </AdminActionForm>
+                    </div>
                   </AdminTableCell>
                 </AdminTableRow>
               ))}

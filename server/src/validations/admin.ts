@@ -7,6 +7,17 @@ export const allocationParams = z.object({ orgId: id, courseId: id });
 export const requestIdParams = params("requestId");
 export const userIdParams = params("userId");
 export const courseIdParams = params("courseId");
+export const createAdminCourseCouponBody = z.object({
+  code: z.string().trim().min(3).max(32).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/).nullable().optional(),
+  label: z.string().trim().min(1).max(80),
+  percentOff: z.coerce.number().int().min(1).max(100),
+  maxRedemptions: z.coerce.number().int().min(1).max(10000),
+  expiresAt: z.string().datetime().nullable().optional(),
+  autoApply: z.boolean().default(false),
+}).refine((body) => body.code || body.autoApply, { message: "Enter a coupon code or enable automatic discount." });
+export type CreateAdminCourseCouponBody = z.infer<typeof createAdminCourseCouponBody>;
+export const adminCourseCouponParams = z.object({ courseId: id, couponId: id });
+export const adminCourseCouponActiveBody = z.object({ active: z.boolean() });
 
 /** Change a course's publish state from the admin catalog. */
 export const courseStatusBody = z.object({

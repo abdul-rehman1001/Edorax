@@ -76,6 +76,7 @@ export type CourseOverview = {
 
 export type Checkout = {
   course: { id: string; slug: string; title: string; pricingType: CoursePricingType; priceCents: number; currency: string };
+  automaticDiscount: { percentOff: number; label: string } | null;
   enrollment: { id: string; lifecycle: EnrollmentLifecycle } | null;
   state: "no_enrollment" | "payment_required" | "already_paid";
 };
