@@ -23,7 +23,7 @@ export async function listDiscountCampaigns() {
     prisma.course.findMany({
       where: { status: "PUBLISHED", pricingType: "PAID" },
       orderBy: { title: "asc" },
-      select: { id: true, title: true, slug: true, category: true, subcategory: true, tags: true },
+      select: { id: true, title: true, slug: true, category: true, subcategory: true, tags: true, coverUrl: true, priceCents: true, currency: true },
     }),
   ]);
   return {

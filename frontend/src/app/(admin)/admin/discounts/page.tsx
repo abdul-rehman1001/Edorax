@@ -9,7 +9,7 @@ type DiscountAdminView = {
     percentOff: number; maxRedemptions: number; redemptionCount: number; autoApply: boolean; active: boolean;
     expiresAt: string | null; courseCount: number; createdAt: string;
   }>;
-  courses: Array<{ id: string; title: string; slug: string; category: "TECH" | "SOFT_SKILLS"; subcategory: string | null; tags: string[] }>;
+  courses: Array<{ id: string; title: string; slug: string; category: "TECH" | "SOFT_SKILLS"; subcategory: string | null; tags: string[]; coverUrl: string | null; priceCents: number; currency: string }>;
   subcategories: string[];
   tags: string[];
 };
