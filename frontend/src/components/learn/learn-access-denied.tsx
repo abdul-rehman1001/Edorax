@@ -14,9 +14,9 @@ export function LearnAccessDenied({
     reason === "payment_required"
       ? {
           title: "Payment required",
-          body: "Complete checkout to open chapters and submit checkpoints.",
+          body: "Request access to open chapters and submit checkpoints.",
           href: `/courses/${courseSlug}/checkout`,
-          cta: "Go to checkout",
+          cta: "Request access",
         }
       : reason === "not_enrolled"
         ? {
@@ -36,7 +36,7 @@ export function LearnAccessDenied({
               title: "Course access unavailable",
               body: "This enrollment is not active. Contact support if this looks wrong.",
               href: "/my-courses",
-              cta: "My courses",
+              cta: "My learning",
             };
 
   return (

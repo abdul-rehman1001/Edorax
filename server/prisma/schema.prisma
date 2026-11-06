@@ -87,6 +87,14 @@ enum CourseCategory {
   CLOUD_DEVOPS
 }
 
+enum DiscountTargetScope {
+  ALL
+  CATEGORY
+  SUBCATEGORY
+  TAG
+  SELECTED_COURSES
+}
+
 enum CourseInstructorRole {
   COURSE_CREATOR
   SUBMISSION_EVALUATOR
@@ -131,6 +139,12 @@ enum PaymentStatus {
   SUCCEEDED
   FAILED
   REFUNDED
+}
+
+enum InstructorPayoutStatus {
+  NOT_DUE
+  PENDING
+  PAID
 }
 
 /// Org coupon seat that has been reserved for a learner (mentor assign / Pathment enroll).
@@ -274,6 +288,9 @@ model User {
   profile       UserProfile?
   learnerProfile LearnerProfile?
   coursesOwned  Course[]     @relation("CourseMentor")
+  instructorCouponsCreated InstructorCoupon[] @relation("InstructorCouponCreator")
+  discountCampaignsCreated CourseDiscountCampaign[]
+  instructorCouponRedemptions InstructorCouponRedemption[]
   courseMemberships CourseInstructor[]
   courseInstructorInvitesSent CourseInstructorInvite[] @relation("CourseInstructorInviteSender")
   enrollments   Enrollment[]
@@ -396,6 +413,8 @@ model Course {
   difficulty     String?
   estimatedHours Int?
   category       CourseCategory @default(TECH)
+  subcategory    String?
+  tags           String[]       @default([])
   status         CourseStatus @default(DRAFT)
   pricingType    CoursePricingType @default(FREE)
   priceCents     Int          @default(0)
@@ -427,6 +446,7 @@ model Course {
   organizationCourseRequests OrganizationCourseRequest[]
   couponPools    OrganizationCouponPool[]
   couponUsages   CouponUsage[]
+  instructorCoupons InstructorCoupon[]
   invites        Invite[]
   helpThreads    HelpThread[]
   publishedAt    DateTime?
@@ -650,6 +670,7 @@ model Enrollment {
   studySessions     StudySession[]
   integrityAttempts IntegrityAttempt[]
   payment           Payment?
+  instructorCouponRedemption InstructorCouponRedemption?
   xpEntries         XpEntry[]
   couponUsage       CouponUsage?
 
@@ -698,6 +719,72 @@ model OrganizationCouponPool {
 
   @@index([organizationId, courseId, active])
   @@index([organizationId, code])
+}
+
+/// Course-specific percentage coupons and automatic discounts created by instructors or admins.
+model InstructorCoupon {
+  id              String       @id @default(cuid())
+  courseId        String
+  course          Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdById     String
+  createdBy       User         @relation("InstructorCouponCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  code            String?
+  label           String
+  percentOff      Int          @default(100)
+  autoApply       Boolean      @default(false)
+  maxRedemptions  Int
+  redemptionCount Int          @default(0)
+  active          Boolean      @default(true)
+  expiresAt       DateTime?
+  campaignId      String?
+  campaign        CourseDiscountCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  redemptions     InstructorCouponRedemption[]
+
+  @@unique([courseId, code])
+  @@index([courseId, active])
+}
+
+/// Admin-owned discount campaigns can target a category, subcategory, tag, selected courses, or all paid courses.
+model CourseDiscountCampaign {
+  id              String              @id @default(cuid())
+  createdById     String
+  createdBy       User                @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  label           String
+  code            String?             @unique
+  scope           DiscountTargetScope
+  category        CourseCategory?
+  subcategory     String?
+  tag             String?
+  courseIds       String[]            @default([])
+  percentOff      Int
+  maxRedemptions  Int
+  redemptionCount Int                 @default(0)
+  autoApply       Boolean             @default(false)
+  active          Boolean             @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  coupons         InstructorCoupon[]
+
+  @@index([active, scope])
+  @@index([category, active])
+  @@index([subcategory, active])
+}
+
+model InstructorCouponRedemption {
+  id          String          @id @default(cuid())
+  couponId    String
+  coupon      InstructorCoupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  enrollmentId String         @unique
+  enrollment  Enrollment      @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  percentOff  Int
+  redeemedAt  DateTime        @default(now())
+
+  @@index([couponId, redeemedAt])
 }
 
 /// One reserved seat from a pool, created when a mentor/Pathment assigns the course.
@@ -787,6 +874,9 @@ model Payment {
   provider     String?
   providerRef  String?
   paidAt       DateTime?
+  instructorShareCents Int   @default(0)
+  instructorPayoutStatus InstructorPayoutStatus @default(NOT_DUE)
+  instructorPayoutPaidAt DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }

@@ -78,6 +78,8 @@ export async function loadCourseBuilder(user: SessionUser, courseSlug: string): 
         difficulty: true,
         estimatedHours: true,
         category: true,
+        subcategory: true,
+        tags: true,
         sequential: true,
         status: true,
         pricingType: true,
@@ -141,7 +143,7 @@ export async function loadCourseSettings(user: SessionUser, courseSlug: string):
     where: { id: owned.id },
     select: {
       id: true, slug: true, title: true, description: true, projectGoal: true,
-      difficulty: true, estimatedHours: true, category: true, sequential: true, autoGradeOpenQuestions: true, coverUrl: true,
+      difficulty: true, estimatedHours: true, category: true, subcategory: true, tags: true, sequential: true, autoGradeOpenQuestions: true, coverUrl: true,
       status: true, pricingType: true, priceCents: true, currency: true, integritySnapshots: true,
       familySlug: true, variantFamily: true, variantAssignment: true,
       _count: { select: { enrollments: true, chapters: { where: { archivedAt: null } } } },
@@ -159,7 +161,7 @@ export async function loadCourseDraftPreview(user: SessionUser, courseSlug: stri
     where: { id: owned.id },
     select: {
       id: true, slug: true, title: true, description: true, projectGoal: true, coverUrl: true, status: true,
-      difficulty: true, estimatedHours: true, category: true,
+        difficulty: true, estimatedHours: true, category: true, subcategory: true, tags: true,
       activeReleaseId: true, familySlug: true, variantFamily: true,
       modules: {
         where: { archivedAt: null },
@@ -238,6 +240,11 @@ export async function updateCourseSettings(user: SessionUser, courseId: string, 
     }
   }
 
+  const managed = await prisma.course.findUniqueOrThrow({ where: { id: courseId }, select: { repositorySourceHash: true } });
+  if (managed.repositorySourceHash && (input.pricingType !== "PAID" || priceCents !== 1000 || input.currency.toUpperCase() !== "USD")) {
+    throw new UnprocessableError("Repository-managed courses must be priced at $10 USD.");
+  }
+
   await prisma.course.update({
     where: { id: courseId },
     data: {
@@ -248,6 +255,8 @@ export async function updateCourseSettings(user: SessionUser, courseId: string, 
       difficulty: input.difficulty || null,
       estimatedHours: input.estimatedHours === "" ? null : input.estimatedHours,
       ...(input.category ? { category: input.category } : {}),
+      ...(input.subcategory !== undefined ? { subcategory: input.subcategory || null } : {}),
+      ...(input.tags ? { tags: [...new Set(input.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))] } : {}),
       sequential: input.sequential,
       autoGradeOpenQuestions: input.autoGradeOpenQuestions,
       ...(input.variantAssignment ? { variantAssignment: input.variantAssignment } : {}),

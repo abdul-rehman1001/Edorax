@@ -64,7 +64,7 @@ export function readCourseZip(buffer: Buffer, source: CourseZipSource = "dashboa
 export type ImportPlan = {
   manifest: {
     title: string; description: string; projectGoal: string; difficulty: string;
-    estimatedHours: number; coverUrl?: string; family?: string; category?: CourseCategorySource;
+    estimatedHours: number; coverUrl?: string; family?: string; category?: CourseCategorySource; subcategory?: string; tags?: string[];
     variantFamily?: CourseFamily;
     assistant?: CourseAssistant;
     availableVariantSlugs?: string[];
@@ -143,6 +143,8 @@ async function runCourseImport(user: SessionUser, buffer: Buffer, source: Course
   const { title, description, projectGoal, difficulty, estimatedHours, coverUrl, family, variantFamily } = plan.manifest;
   const category = courseCategoryFromSource(plan.manifest.category);
   const metadata = { title, description, projectGoal, difficulty, estimatedHours, coverUrl, category,
+    subcategory: plan.manifest.subcategory?.trim() || null,
+    tags: [...new Set((plan.manifest.tags ?? []).map((tag) => tag.trim().toLowerCase()).filter(Boolean))],
     familySlug: family ?? null, variantFamily: variantFamily as unknown as Prisma.InputJsonValue | undefined,
     assistant: plan.manifest.assistant as Prisma.InputJsonValue | undefined,
     availableVariantSlugs: plan.manifest.availableVariantSlugs ?? [] };

@@ -105,20 +105,14 @@ function ReactionBubble({
   reaction,
   animate,
   voiceOn,
-  speaking,
-  onReplayVoice,
-  onToggleVoiceOff,
-  onToggleVoiceOn,
+  onToggleVoice,
   onPause,
   onDismiss,
 }: {
   reaction: MascotReaction;
   animate: boolean;
   voiceOn: boolean;
-  speaking: boolean;
-  onReplayVoice: () => void;
-  onToggleVoiceOff: () => void;
-  onToggleVoiceOn: () => void;
+  onToggleVoice: () => void;
   onPause: (paused: boolean) => void;
   onDismiss: () => void;
 }) {
@@ -148,8 +142,7 @@ function ReactionBubble({
       </div>
       <div
         className={cn(
-          "relative mb-2 border border-border bg-card py-2.5 pl-3.5 text-base font-medium text-card-foreground",
-          voiceOn ? "pr-24" : "pr-16"
+          "relative mb-2 border border-border bg-card py-2.5 pl-3.5 pr-16 text-base font-medium text-card-foreground"
         )}
       >
         {/* The full line reserves the bubble's size so it does not grow while typing. */}
@@ -189,41 +182,16 @@ function ReactionBubble({
           </span>
         ) : null}
         <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5">
-          {voiceOn ? (
-            <>
-              <button
-                type="button"
-                onClick={onReplayVoice}
-                aria-label={speaking ? "Dot is speaking" : "Listen to Dot's voice"}
-                title={speaking ? "Dot is speaking" : "Listen to Dot's voice"}
-                className={BUBBLE_BUTTON}
-              >
-                <Volume2
-                  className={cn("size-3.5", speaking && "animate-pulse text-primary")}
-                  aria-hidden
-                />
-              </button>
-              <button
-                type="button"
-                onClick={onToggleVoiceOff}
-                aria-label="Turn off Dot's voice"
-                title="Turn off Dot's voice"
-                className={BUBBLE_BUTTON}
-              >
-                <VolumeX className="size-3.5 text-muted-foreground hover:text-foreground" aria-hidden />
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={onToggleVoiceOn}
-              aria-label="Turn on Dot's voice"
-              title="Turn on Dot's voice"
-              className={BUBBLE_BUTTON}
-            >
-              <VolumeX className="size-3.5 text-muted-foreground hover:text-foreground" aria-hidden />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onToggleVoice}
+            aria-label={voiceOn ? "Turn off Dot's voice" : "Turn on Dot's voice"}
+            aria-pressed={voiceOn}
+            title={voiceOn ? "Turn off Dot's voice" : "Turn on Dot's voice"}
+            className={cn(BUBBLE_BUTTON, voiceOn && "bg-primary/10 text-primary")}
+          >
+            {voiceOn ? <Volume2 className="size-3.5" aria-hidden /> : <VolumeX className="size-3.5" aria-hidden />}
+          </button>
           <button type="button" onClick={onDismiss} aria-label="Dismiss" title="Dismiss" className={BUBBLE_BUTTON}>
             <X className="size-3.5" aria-hidden />
           </button>
@@ -242,7 +210,6 @@ export function MascotPlayer() {
   const [voiceOn, setVoiceOn] = useDotVoice();
   const [speaking, setSpeaking] = useState(false);
   const [held, setHeld] = useState<{ reaction: MascotReaction; seq: number } | null>(null);
-  const [voiceTrigger, setVoiceTrigger] = useState(0);
 
   useMascotReactions((reaction, seq) => {
     // Dot stays out of a quiz: its reaction (and voice) waits until the quiz closes. Only the
@@ -279,7 +246,7 @@ export function MascotPlayer() {
       cleanup();
       setSpeaking(false);
     };
-  }, [voiceOn, shown?.seq, voiceTrigger]);
+  }, [voiceOn, shown?.seq]);
 
   // Count down only while nothing modal is open, Dot is not speaking and the learner is not hovering the bubble.
   useEffect(() => {
@@ -339,13 +306,7 @@ export function MascotPlayer() {
           reaction={shown.reaction}
           animate={!reducedMotion}
           voiceOn={voiceOn}
-          speaking={speaking}
-          onReplayVoice={() => setVoiceTrigger((c) => c + 1)}
-          onToggleVoiceOff={() => setVoiceOn(false)}
-          onToggleVoiceOn={() => {
-            setVoiceOn(true);
-            setVoiceTrigger((c) => c + 1);
-          }}
+          onToggleVoice={() => setVoiceOn(!voiceOn)}
           onPause={setPaused}
           onDismiss={() => {
             setPaused(false);

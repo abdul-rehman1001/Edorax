@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleHelp, Compass, Home, Trophy, TrendingUp, type LucideIcon } from "lucide-react";
+import { BookOpenText, CircleHelp, Compass, Home, Trophy, TrendingUp, type LucideIcon } from "lucide-react";
 import { WorkspaceAccountMenu } from "@/components/workspace/workspace-account-menu";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
@@ -50,15 +50,21 @@ export function MenteeWorkspaceShell({
 
   const area = areaForPath(pathname);
   const home: LearnerNavItem = { label: "Home", href: "/dashboard", icon: Home, active: pathname === "/dashboard" };
-  // Every learner area, in the order of LEARN_AREAS. Courses opens on every course; "My courses" is a tab inside it.
+  // Every learner area, in the order of LEARN_AREAS. Courses opens on every course; the learner's own courses are under "My learning".
   const areaItems: LearnerNavItem[] = LEARN_AREAS.map((a) => ({
     label: a.id === "voice" ? "Voice agents" : a.short,
     href: a.href,
     icon: AREA_ICON[a.id],
-    active: area?.id === a.id,
-    count: a.id === "courses" ? assignedCourses : undefined,
+    active: area?.id === a.id && pathname !== "/my-courses",
     soon: a.status === "coming-soon",
   }));
+  const myLearning: LearnerNavItem = {
+    label: "My learning",
+    href: "/my-courses",
+    icon: BookOpenText,
+    active: pathname === "/my-courses",
+    count: assignedCourses,
+  };
   const youItems: LearnerNavItem[] = [
     { label: "Progress", href: "/progress", icon: TrendingUp, active: pathname === "/progress" },
     { label: "Leaderboard", mobileLabel: "Ranks", href: "/leaderboard", icon: Trophy, active: pathname === "/leaderboard" },
@@ -74,7 +80,7 @@ export function MenteeWorkspaceShell({
   const sidebarGroups: { label?: string; items: LearnerNavItem[] }[] = [
     { items: [home] },
     { label: "Learn", items: areaItems },
-    { label: "You", items: youItems },
+    { label: "You", items: [myLearning, ...youItems] },
   ];
   // Five slots on a phone: the areas share one "Learn" tab that opens the hub, and the hub's tabs switch between them.
   const mobileItems: LearnerNavItem[] = [

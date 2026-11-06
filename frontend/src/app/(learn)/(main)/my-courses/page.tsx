@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Dot } from "@/components/brand/dot";
-import { CoursesTabs } from "@/components/learn/courses-tabs";
 import { buttonVariants } from "@/components/ui/button";
 import { MenteeCourseList } from "@/components/learn/dashboard/mentee-dashboard";
 import type { MenteeDashboardViewModel } from "@/shared/api/learner";
 import { requireLearnSurface } from "@/server/auth/guards";
 import { serverApiFetch } from "@/lib/api-server";
 
-export const metadata: Metadata = { title: "My courses" };
+export const metadata: Metadata = { title: "My learning" };
 
 export default async function MenteeCoursesPage() {
   await requireLearnSurface();
@@ -17,11 +16,8 @@ export default async function MenteeCoursesPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-7 sm:px-6 sm:py-10 lg:px-8">
       <header>
-        <h1 className="text-[32px] leading-tight tracking-[-0.035em] sm:text-[40px]">Courses</h1>
-        <p className="mt-2 max-w-2xl text-lg text-muted-foreground">A little at a time. Continue a chapter or go back over one.</p>
-        <div className="mt-6">
-          <CoursesTabs active="mine" />
-        </div>
+        <h1 className="text-[32px] leading-tight tracking-[-0.035em] sm:text-[40px]">My learning</h1>
+        <p className="mt-2 max-w-2xl text-lg text-muted-foreground">Pick up where you left off, review your lessons, or open a course you have joined.</p>
       </header>
 
       {model.courses.length > 0 ? (

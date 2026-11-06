@@ -1,6 +1,6 @@
 import type { Checkout } from "../../shared/api/catalog.js";
 import { prisma } from "../../db/prisma.js";
-import { ConflictError, NotFoundError } from "../../utils/errors.js";
+import { NotFoundError } from "../../utils/errors.js";
 import { enrollmentGrantsContentAccess } from "./lifecycle.js";
 
 export async function loadCheckout(courseSlug: string, userId: string): Promise<Checkout> {
@@ -13,38 +13,23 @@ export async function loadCheckout(courseSlug: string, userId: string): Promise<
 
   const enrollment = await prisma.enrollment.findUnique({
     where: { courseId_userId: { courseId: course.id, userId } },
-    select: { id: true, lifecycle: true },
+    select: { id: true, lifecycle: true, payment: { select: { amountCents: true } }, instructorCouponRedemption: { select: { id: true } } },
   });
-  if (!enrollment) return { course: courseFields, enrollment: null, state: "no_enrollment" };
+  const enrollmentView = enrollment ? { id: enrollment.id, lifecycle: enrollment.lifecycle } : null;
+  const automaticCoupon = (!enrollment || (enrollment.lifecycle === "PAYMENT_REQUIRED" && !enrollment.instructorCouponRedemption)) && course.pricingType === "PAID"
+    ? await prisma.instructorCoupon.findMany({
+        where: { courseId: course.id, active: true, autoApply: true, redemptionCount: { lt: 1000000 }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+        orderBy: [{ percentOff: "desc" }, { createdAt: "asc" }],
+        include: { campaign: true },
+      }).then((offers) => {
+        const coupon = offers.find((offer) => offer.redemptionCount < offer.maxRedemptions && (!offer.campaign || (offer.campaign.active && offer.campaign.redemptionCount < offer.campaign.maxRedemptions && (!offer.campaign.expiresAt || offer.campaign.expiresAt > new Date()))));
+        return coupon ? { percentOff: coupon.percentOff, label: coupon.label } : null;
+      })
+    : null;
+  if (!enrollment) return { course: courseFields, enrollment: null, state: "no_enrollment", automaticDiscount: automaticCoupon };
   if (enrollmentGrantsContentAccess(enrollment.lifecycle)) {
-    return { course: courseFields, enrollment, state: "already_paid" };
+    return { course: courseFields, enrollment: enrollmentView, state: "already_paid", automaticDiscount: null };
   }
   if (enrollment.lifecycle !== "PAYMENT_REQUIRED") throw new NotFoundError("Enrollment is not awaiting payment");
-  return { course: courseFields, enrollment, state: "payment_required" };
-}
-
-/** Simulates a successful checkout until a payment provider is wired. */
-export async function completePaymentStub(enrollmentId: string, userId: string): Promise<{ courseSlug: string; alreadyActive: boolean }> {
-  const enrollment = await prisma.enrollment.findFirst({
-    where: { id: enrollmentId, userId },
-    include: { course: { select: { slug: true } }, payment: true },
-  });
-  if (!enrollment) throw new NotFoundError("Enrollment not found");
-  if (enrollment.lifecycle !== "PAYMENT_REQUIRED") {
-    if (enrollmentGrantsContentAccess(enrollment.lifecycle)) return { courseSlug: enrollment.course.slug, alreadyActive: true };
-    throw new ConflictError("This enrollment is not awaiting payment");
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.payment.update({
-      where: { enrollmentId: enrollment.id },
-      data: { status: "SUCCEEDED", paidAt: new Date(), provider: "stub", providerRef: `stub_${Date.now()}` },
-    });
-    await tx.enrollment.update({
-      where: { id: enrollment.id },
-      data: { lifecycle: "ACTIVE", status: "IN_PROGRESS", startedAt: enrollment.startedAt ?? new Date() },
-    });
-  });
-
-  return { courseSlug: enrollment.course.slug, alreadyActive: false };
+  return { course: { ...courseFields, priceCents: enrollment.payment?.amountCents ?? course.priceCents }, enrollment: enrollmentView, state: "payment_required", automaticDiscount: automaticCoupon };
 }

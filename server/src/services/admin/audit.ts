@@ -18,7 +18,11 @@ export const ADMIN_AUDIT_ACTIONS = {
   ORGANIZATION_ALLOCATE: "organization.allocate",
   COURSE_REQUEST_APPROVE: "course-request.approve",
   COURSE_REQUEST_REJECT: "course-request.reject",
+  MANUAL_ACCESS_APPROVE: "manual-access.approve",
+  MANUAL_INSTRUCTOR_PAYOUT_PAID: "manual-instructor-payout.paid",
   COURSE_SET_STATUS: "course.set-status",
+  DISCOUNT_CAMPAIGN_CREATE: "discount-campaign.create",
+  DISCOUNT_CAMPAIGN_SET_ACTIVE: "discount-campaign.set-active",
   INSTRUCTOR_REQUEST_APPROVE: "instructor-request.approve",
   INSTRUCTOR_REQUEST_REJECT: "instructor-request.reject",
   USER_GRANT_INSTRUCTOR: "user.grant-instructor",
@@ -42,7 +46,7 @@ export type AdminAuditActionKey = (typeof ADMIN_AUDIT_ACTIONS)[keyof typeof ADMI
 export type AdminAuditEntry = {
   actor: AdminActor;
   action: AdminAuditActionKey;
-  targetType: "Organization" | "User" | "CourseRequest" | "InstructorAccessRequest" | "Course";
+  targetType: "Organization" | "User" | "CourseRequest" | "InstructorAccessRequest" | "Course" | "CourseDiscountCampaign" | "Enrollment" | "Payment";
   targetId?: string | null;
   summary: string;
   metadata?: Prisma.InputJsonValue;

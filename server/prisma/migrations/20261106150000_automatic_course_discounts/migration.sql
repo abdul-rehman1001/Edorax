@@ -1,0 +1,2 @@
+ALTER TABLE "InstructorCoupon" ALTER COLUMN "code" DROP NOT NULL;
+ALTER TABLE "InstructorCoupon" ADD COLUMN "autoApply" BOOLEAN NOT NULL DEFAULT false;

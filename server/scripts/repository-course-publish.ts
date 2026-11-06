@@ -93,7 +93,7 @@ export function courseSourceHash(pkg: Package): string {
 }
 
 type CourseDetails = { title: string; description: string | null; projectGoal: string | null; difficulty: string | null;
-  estimatedHours: number | null; category: CourseCategory; coverUrl: string | null; assistant: unknown };
+  estimatedHours: number | null; category: CourseCategory; subcategory?: string | null; tags?: string[]; coverUrl: string | null; assistant: unknown };
 
 // The repository owns a published course's details, so a publish copies them from course.yaml.
 // ZIP updates leave details alone, which kept an early preview's title on System Design.
@@ -102,6 +102,8 @@ export function courseDetailsUpdate(manifest: Package["manifest"], current: Cour
     title: manifest.title, description: manifest.description, projectGoal: manifest.projectGoal,
     difficulty: manifest.difficulty, estimatedHours: manifest.estimatedHours,
     category: courseCategoryFromSource(manifest.category),
+    subcategory: manifest.subcategory ?? null,
+    tags: manifest.tags,
     // No cover in the source keeps whatever cover the course has.
     ...(manifest.coverUrl ? { coverUrl: manifest.coverUrl } : {}),
     // Tutor settings are a JSON column, so they compare by value; no block clears whatever is stored.
@@ -195,7 +197,7 @@ async function publish(packages: Package[], instructorEmail: string) {
       const sourceHash = courseSourceHash(pkg);
       const prior = await prisma.course.findUnique({ where: { slug: targetSlug }, select: {
         id: true, status: true, activeReleaseId: true, repositorySourceHash: true, repositoryReleaseId: true,
-        title: true, description: true, projectGoal: true, difficulty: true, estimatedHours: true, category: true, coverUrl: true, assistant: true,
+        title: true, description: true, projectGoal: true, difficulty: true, estimatedHours: true, category: true, subcategory: true, tags: true, coverUrl: true, assistant: true,
       } });
       const details = prior ? courseDetailsUpdate(pkg.manifest, prior) : null;
       if (prior && details) {

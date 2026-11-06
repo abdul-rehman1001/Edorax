@@ -5,6 +5,9 @@ import { TestAccountPicker } from "@/components/auth/test-account-picker";
 import { devTestAccounts } from "@/server/auth/dev-test-accounts";
 import { safeRedirectTo } from "@/shared/lib/safe-redirect";
 import { loginErrorMessage } from "@/lib/auth-errors";
+import { getSessionUser } from "@/server/auth/guards";
+import { homeRouteForRole } from "@/server/auth/access-rules";
+import { redirect } from "next/navigation";
 
 export default async function LoginPage({
   searchParams,
@@ -18,6 +21,11 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const redirectTo = safeRedirectTo(params.redirectTo);
+  const user = await getSessionUser();
+  if (user) {
+    if (user.role !== "ADMIN" && !user.emailVerified) redirect("/verify-email");
+    redirect(redirectTo ?? homeRouteForRole(user.role));
+  }
   const errorMessage = loginErrorMessage(params.error);
   const verifiedBanner =
     params.verified === "1"

@@ -46,7 +46,7 @@ API is down. The one exception is `/listen`, which reads the catalog for course 
 empty state when the API is unreachable.
 
 ```
-frontend/src/app/(catalog)/
+frontend/src/app/(learn)/(catalog)/
   catalog/                 Courses (existing)
   listen/                  Listen: courses with audio, read from the live manifests
   learn/                   The hub: every area on one page
@@ -87,7 +87,7 @@ Courses stay the spine: every other area links back to the modules it practises.
 
 ## Listen (open)
 
-Code: `app/(catalog)/listen/page.tsx`, `lib/listen-library.ts` (server loader), `lib/listen-summary.ts`
+Code: `app/(learn)/(catalog)/listen/page.tsx`, `lib/listen-library.ts` (server loader), `lib/listen-summary.ts`
 (pure helpers, tested in `tests/unit/lib/listen-summary.test.ts`).
 
 - Course list: the published catalog (`/api/v1/catalog`). Audio: each course's live manifest at

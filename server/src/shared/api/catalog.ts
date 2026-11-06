@@ -14,6 +14,8 @@ export type CatalogCourseSummary = {
   estimatedHours: number | null;
   /** Catalog grouping shown as tiles: technical courses and soft-skills courses. */
   category: CourseCategory;
+  subcategory: string | null;
+  tags: string[];
   pricingType: CoursePricingType;
   priceCents: number;
   currency: string;
@@ -76,6 +78,7 @@ export type CourseOverview = {
 
 export type Checkout = {
   course: { id: string; slug: string; title: string; pricingType: CoursePricingType; priceCents: number; currency: string };
+  automaticDiscount: { percentOff: number; label: string } | null;
   enrollment: { id: string; lifecycle: EnrollmentLifecycle } | null;
   state: "no_enrollment" | "payment_required" | "already_paid";
 };
@@ -91,6 +94,9 @@ export const ENROLLMENT_ERROR_CODES = {
   ALREADY_ENROLLED: "ALREADY_ENROLLED",
   PAYMENT_PENDING: "PAYMENT_PENDING",
   NOT_PUBLISHED: "NOT_PUBLISHED",
+  COUPON_INVALID: "COUPON_INVALID",
+  COUPON_EXHAUSTED: "COUPON_EXHAUSTED",
+  COUPON_NOT_APPLICABLE: "COUPON_NOT_APPLICABLE",
 } as const;
 
 /** PUT /api/v1/courses/:courseSlug/track/variant and /track/specialisation */
