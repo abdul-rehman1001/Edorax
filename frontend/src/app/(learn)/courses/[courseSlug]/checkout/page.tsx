@@ -83,7 +83,7 @@ export default async function CourseCheckoutPage({
       </div>
 
       <Link href="/my-courses" className={cn(buttonVariants({ variant: "ghost" }), "mt-6 self-center")}>
-        My courses
+        My learning
       </Link>
     </div>
   );
