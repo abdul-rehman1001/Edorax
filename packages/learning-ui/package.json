@@ -16,6 +16,22 @@
       "import": "./course-theme.css",
       "default": "./course-theme.css"
     },
+    "./mascot.css": {
+      "style": "./mascot.css",
+      "import": "./mascot.css",
+      "default": "./mascot.css"
+    },
+    "./mascot/ask-help": "./src/mascot/ask-help.ts",
+    "./mascot/attention": "./src/mascot/attention.ts",
+    "./mascot/browser": "./src/mascot/browser.ts",
+    "./mascot/dot-mood": "./src/mascot/dot-mood.ts",
+    "./mascot/dot-voice": "./src/mascot/dot-voice.ts",
+    "./mascot/hooks": "./src/mascot/hooks.ts",
+    "./mascot/MascotPlayer": "./src/mascot/MascotPlayer.tsx",
+    "./mascot/paths": "./src/mascot/paths.ts",
+    "./mascot/runtime": "./src/mascot/runtime.ts",
+    "./lib/use-browser-storage": "./src/lib/use-browser-storage.ts",
+    "./shared/api/notifications": "./src/shared/api/notifications.ts",
     "./components/learn/go-deeper": "./src/components/learn/go-deeper.tsx",
     "./components/learn/checklist": "./src/components/learn/checklist.tsx",
     "./components/learn/learning-log": "./src/components/learn/learning-log.tsx",
@@ -1102,7 +1118,8 @@
     "assets",
     "styles.css",
     "tsconfig.json",
-    "course-theme.css"
+    "course-theme.css",
+    "mascot.css"
   ],
   "peerDependencies": {
     "react": "^19.2.0",

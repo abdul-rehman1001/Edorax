@@ -19,5 +19,14 @@
   "api/catalog.ts",
   "api/syllabus.ts",
   "domain/enums.ts",
-  "lib/course-tracks.ts"
+  "lib/course-tracks.ts",
+  "api/engagement.ts",
+  "api/notifications.ts",
+  "engagement/dot-voice.ts",
+  "engagement/engine.ts",
+  "engagement/mascot-messages.en.json",
+  "engagement/mascots.ts",
+  "engagement/messages.ts",
+  "engagement/reactions.ts",
+  "engagement/rules.ts"
 ]
