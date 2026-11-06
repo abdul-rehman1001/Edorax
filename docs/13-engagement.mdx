@@ -12,18 +12,22 @@ The foundation of the engagement system: the app reports learning moments, the s
 stores them, and a mascot reacts. Today the only reaction is a short mascot bubble on the learner
 surface; streaks, badges or a mobile app can build on the same events.
 
+There is one mascot for every app. The API decides each reaction, and the shared runtime and player
+in `packages/learning-ui/src/mascot` show it, so a new rule or line needs no app release. See
+[One mascot, every app](#one-mascot-every-app).
+
 ## Flow
 
 ```
 component action succeeds
-  → trackEngagement({ type, courseId?, chapterId? })      frontend/src/lib/engagement/client.ts
+  → track({ type, courseId?, chapterId? })                packages/learning-ui/src/mascot/runtime.ts
   → engine.track()                                        shared/engagement/engine.ts
   → POST /api/v1/events                                   services/engagement/events.ts
       checks the moment against the database, fills in facts, stores EngagementEvent rows
-  ← { events: [reported event, ...events it caused] }
-  → rules pick one reaction, cooldowns apply              shared/engagement/rules.ts
-  → mascot resolved by role                               shared/engagement/mascots.ts
-  → <MascotPlayer> shows image + subtitle                 frontend/src/components/mascot/mascot-player.tsx
+      rules pick one reaction, cooldowns apply            services/engagement/reactions.ts
+      mascot resolved by role                             shared/engagement/reactions.ts
+  ← { events: [reported event, ...events it caused], reaction }
+  → <MascotPlayer> shows the mascot and its line          packages/learning-ui/src/mascot/MascotPlayer.tsx
 ```
 
 `track()` never throws and nobody awaits it: a tracking failure can never break enrolling, saving a
@@ -119,14 +123,15 @@ intent), shown as a button in the bubble; help is offered, never imposed.
 
 ## Quiet moments
 
-`frontend/src/lib/engagement/attention.ts` counts engaged time like the app activity clock: the tab is
+`packages/learning-ui/src/mascot/attention.ts` counts engaged time like the app activity clock: the tab is
 visible and the learner interacted in the last two minutes. It never fires while focus is in a text
 field.
 
 - **A long while on a chapter.** The reader watches each unfinished chapter. After twice the
   chapter's `estimatedMinutes` (kept between 10 and 45 minutes; 20 without an estimate) of engaged
   time it reports `chapter_lingering`, and Pip offers "Ask a mentor", which opens the chapter's help
-  dialog (`lib/engagement/ask-help.ts`). The line never mentions time.
+  dialog (`mascot/ask-help.ts`). The line never mentions time. Desktop has no help dialog yet, so
+  there the button opens the chapter on the web.
 - **A long study stretch.** After 50 engaged minutes (a 10-minute break starts over) the clock
   reports `long_session` at a natural pause: on a page that is not a chapter, or on moving to the
   next chapter. Mossy suggests a short break.
@@ -134,12 +139,14 @@ field.
 ## Messages
 
 While the mascot player is mounted, live notifications a learner receives over the signed-in
-stream (`help.reply`, `help.resolved`, `review.feedback`) become a local `message_received` event
-(`shared/engagement/messages.ts`) and run through `engine.react()` — no extra request. Dot announces
-them with an **Open** button, and the toast for that notification stands down (the bell still lists
-it). `review.feedback` notifications store the mentor's verdict in `Notification.data`, exposed as
-`NotificationItem.verdict`, so an approval gets "Your work was approved!"; older ones, without it,
-get the neutral feedback line.
+stream (`help.reply`, `help.resolved`, `review.feedback`) arrive with the API's reaction on them
+(`NotificationItem.reaction`, built when the push goes out) and are shown with `engine.show()` — no
+extra request. A notification without one (from a feed refresh, or an older API) becomes a local
+`message_received` event (`shared/engagement/messages.ts`) and runs through `engine.react()`. Dot
+announces them with an **Open** button, and the toast for that notification stands down (the bell
+still lists it). `review.feedback` notifications store the mentor's verdict in `Notification.data`,
+exposed as `NotificationItem.verdict`, so an approval gets "Your work was approved!"; older ones,
+without it, get the neutral feedback line.
 
 ## Dashboard
 
@@ -149,15 +156,16 @@ Bimo on the empty dashboard, and Mossy's **tip of the day** beside the weekly sn
 course slug under `courses`, mixed in for learners whose current course it is. They are text only,
 so they can change freely.
 
-## Web player
+## Player
 
-`MascotPlayer` is mounted once in `app/(learn)/layout.tsx` — learner surface only. Bottom-centre,
-non-modal, `role="status"` in a polite live region, never takes focus, hides after ~3.5 s (8 s when it
-offers an action; it waits for the voice to finish; paused while hovered or focused), dismissible,
-no motion with `prefers-reduced-motion`. Voice is on until the learner mutes it with the speaker
-button in the bubble (saved as `localStorage["buildment:mascot:voice"] = "off"`). Browsers block
-sound before the learner's first click on a page, so a reaction that arrives before then (a welcome
-back on load) stays silent.
+`MascotPlayer` (`packages/learning-ui/src/mascot/MascotPlayer.tsx`) is the one place reactions are
+drawn, for every app with a DOM. The web mounts it once per signed-in learner layout; desktop mounts
+it while signed in. Bottom-centre, non-modal, a polite live region, never takes focus, hides after
+~3.5 s (8 s when it offers an action; it waits for the voice to finish; paused while hovered or
+focused), dismissible, no motion with `prefers-reduced-motion`. Voice is off until the learner turns
+it on with the speaker button or in profile settings (saved per device as
+`localStorage["buildment:dot-voice"] = "on"`). Browsers block sound before the learner's first click
+on a page, so a reaction that arrives before then (a welcome back on load) stays silent.
 
 **Expressions.** Every mascot has a `rig` and is drawn live (`components/mascot/mascot-rig.tsx`) from
 the pose's `expression` in the registry: eyes, brows, mouth, blush, arms (down, up, wave, thumbs,
@@ -188,8 +196,48 @@ Both are generated outside the repo and only the results are committed.
   quiz: a reaction that arrives while the quiz session is open waits and shows once it closes. `frontend/tests/unit/engagement/mascot-assets.test.ts` checks the files, the manifest and
   the wording all agree. Changing a voiced line means recording its clip again.
 
-## Mobile
+## One mascot, every app
 
-`shared/engagement` has no React, browser or Prisma code. A mobile app calls
-`createEngagementEngine({ platform: "ios" | "android", transport, present, storage })` with its own
-HTTP client, AsyncStorage-backed store and presenter, against the same endpoint.
+| Layer | Where | Change it and… |
+|---|---|---|
+| Rules, lines, casting | `server/src/shared/engagement` | every app follows on the next API deploy |
+| Decision and cooldowns | `server/src/services/engagement/reactions.ts` | every app follows on the next API deploy |
+| Runtime and hooks | `packages/learning-ui/src/mascot` | each app picks it up on its next release |
+| Player | `packages/learning-ui/src/mascot/MascotPlayer.tsx` | web and desktop, on their next release |
+| Adapter | `frontend/src/lib/engagement/client.ts`, `desktop/src/ui/mascot/mascot.ts` | written once per app |
+
+**Adding a moment** takes a rule, and one `track()` call where it happens in each app.
+
+**Adding an app** takes one `MascotAdapter` (`mascot/runtime.ts`): how to send a request, where the
+learner is, and optionally storage, the live feed and an attention clock. `browserMascotParts()`
+supplies most of that for anything with a DOM. An app with no URLs reports the path of the matching
+web page, so reading and area rules work unchanged: desktop calls `setMascotPath`.
+
+**Server-decided reactions.** `POST /api/v1/events` returns `reaction`: the object to show, or `null`
+for nothing. The API knows whether the learner is reading from the request's `reading` and `area`.
+
+- Cooldowns hold across devices: the event a reaction answered is stamped with `reactedRule`, and the
+  rule cools down while a recent event carries that stamp.
+- Reactions are versioned because an installed app keeps reading them for years. `readReaction` keeps
+  what the app recognises and drops the rest; an unknown state shows the default mood; only a higher
+  `MASCOT_REACTION_VERSION` is skipped outright. Bump it only for a change an older app cannot show.
+- `MASCOT_SERVER_REACTIONS=false` is the rollback switch. The API then sends no `reaction` field, and
+  each app decides locally with the rules it shipped with. An older API behaves the same way.
+- A failure while deciding is logged and the result goes out without a decision. A mascot is never
+  worth failing the action for.
+
+**Voice clips** come back as full URLs on `MASCOT_ASSET_BASE_URL`, or `APP_URL` when it is empty. To
+move them to a CDN, copy `frontend/public/brand/dot/voice` to `<base>/brand/dot/voice`, set the
+variable, and no app changes. Desktop's content security policy allows HTTPS and localhost media.
+
+**Desktop.** Requests and the live stream run in the main process (`src/api/notification-stream.ts`),
+which alone holds the session token; the renderer receives notifications over IPC. The quiz reports
+an open attempt with `QUIZ_SESSION_MARKER_ID`, so the player holds its reaction as it does on the
+web. Links in a reaction open the desktop reader for a chapter of a catalog course, and the web app
+for anything else. Desktop does not send activity heartbeats yet, so `long_session` is refused there
+unless the learner also studied on the web that day.
+
+**Mobile.** `mascot/runtime.ts` and `mascot/hooks.ts` have no DOM code, so React Native can use them
+with `{ platform: "ios" | "android", send, path, storage }` and an AsyncStorage-backed store,
+against the same endpoint. It needs its own bubble in place of `MascotPlayer` and its own audio
+player, driven by the same `useMascotReactions` hook and `reaction` object.
