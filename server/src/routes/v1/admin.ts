@@ -20,9 +20,9 @@ import {
   bulkSuspendBody,
   courseIdParams,
   courseStatusBody,
-  createAdminCourseCouponBody,
-  adminCourseCouponParams,
-  adminCourseCouponActiveBody,
+  createDiscountCampaignBody,
+  discountCampaignParams,
+  discountCampaignActiveBody,
   couponPoolActiveBody,
   couponPoolParams,
   createCouponPoolBody,
@@ -70,17 +70,17 @@ router.post("/manual-payouts/:enrollmentId/paid", validateParams(enrollmentParam
 router.get("/overview", admin.getOverview);
 router.get("/metrics", validateQuery(metricsQuery), admin.getMetrics);
 router.get("/courses", validateQuery(listCoursesQuery), admin.listCourses);
-router.get("/courses/:courseId/coupons", validateParams(courseIdParams), async (req, res) => {
-  const coupons = await import("../../services/admin/course-coupons.js");
-  ok(res, await coupons.listAdminCourseCoupons(req.params.courseId as string));
+router.get("/discount-campaigns", async (_req, res) => {
+  const discounts = await import("../../services/admin/discount-campaigns.js");
+  ok(res, await discounts.listDiscountCampaigns());
 });
-router.post("/courses/:courseId/coupons", validate({ params: courseIdParams, body: createAdminCourseCouponBody }), async (req, res) => {
-  const coupons = await import("../../services/admin/course-coupons.js");
-  created(res, await coupons.createAdminCourseCoupon(req.user!.id, req.params.courseId as string, req.body));
+router.post("/discount-campaigns", validateBody(createDiscountCampaignBody), async (req, res) => {
+  const discounts = await import("../../services/admin/discount-campaigns.js");
+  created(res, await discounts.createDiscountCampaign(req.user!, req.body));
 });
-router.patch("/courses/:courseId/coupons/:couponId", validate({ params: adminCourseCouponParams, body: adminCourseCouponActiveBody }), async (req, res) => {
-  const coupons = await import("../../services/admin/course-coupons.js");
-  await coupons.setAdminCourseCouponActive(req.params.courseId as string, req.params.couponId as string, req.body.active);
+router.patch("/discount-campaigns/:campaignId", validate({ params: discountCampaignParams, body: discountCampaignActiveBody }), async (req, res) => {
+  const discounts = await import("../../services/admin/discount-campaigns.js");
+  await discounts.setDiscountCampaignActive(req.user!, req.params.campaignId as string, req.body.active);
   noContent(res);
 });
 router.post("/courses/:courseId/status", validate({ params: courseIdParams, body: courseStatusBody }), admin.setCourseStatus);

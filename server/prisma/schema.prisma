@@ -86,6 +86,14 @@ enum CourseCategory {
   SOFT_SKILLS
 }
 
+enum DiscountTargetScope {
+  ALL
+  CATEGORY
+  SUBCATEGORY
+  TAG
+  SELECTED_COURSES
+}
+
 enum CourseInstructorRole {
   COURSE_CREATOR
   SUBMISSION_EVALUATOR
@@ -280,6 +288,7 @@ model User {
   learnerProfile LearnerProfile?
   coursesOwned  Course[]     @relation("CourseMentor")
   instructorCouponsCreated InstructorCoupon[] @relation("InstructorCouponCreator")
+  discountCampaignsCreated CourseDiscountCampaign[]
   instructorCouponRedemptions InstructorCouponRedemption[]
   courseMemberships CourseInstructor[]
   courseInstructorInvitesSent CourseInstructorInvite[] @relation("CourseInstructorInviteSender")
@@ -403,6 +412,8 @@ model Course {
   difficulty     String?
   estimatedHours Int?
   category       CourseCategory @default(TECH)
+  subcategory    String?
+  tags           String[]       @default([])
   status         CourseStatus @default(DRAFT)
   pricingType    CoursePricingType @default(FREE)
   priceCents     Int          @default(0)
@@ -716,7 +727,7 @@ model InstructorCoupon {
   course          Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
   createdById     String
   createdBy       User         @relation("InstructorCouponCreator", fields: [createdById], references: [id], onDelete: Cascade)
-  code            String?      @unique
+  code            String?
   label           String
   percentOff      Int          @default(100)
   autoApply       Boolean      @default(false)
@@ -724,11 +735,41 @@ model InstructorCoupon {
   redemptionCount Int          @default(0)
   active          Boolean      @default(true)
   expiresAt       DateTime?
+  campaignId      String?
+  campaign        CourseDiscountCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   redemptions     InstructorCouponRedemption[]
 
+  @@unique([courseId, code])
   @@index([courseId, active])
+}
+
+/// Admin-owned discount campaigns can target a category, subcategory, tag, selected courses, or all paid courses.
+model CourseDiscountCampaign {
+  id              String              @id @default(cuid())
+  createdById     String
+  createdBy       User                @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  label           String
+  code            String?             @unique
+  scope           DiscountTargetScope
+  category        CourseCategory?
+  subcategory     String?
+  tag             String?
+  courseIds       String[]            @default([])
+  percentOff      Int
+  maxRedemptions  Int
+  redemptionCount Int                 @default(0)
+  autoApply       Boolean             @default(false)
+  active          Boolean             @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  coupons         InstructorCoupon[]
+
+  @@index([active, scope])
+  @@index([category, active])
+  @@index([subcategory, active])
 }
 
 model InstructorCouponRedemption {

@@ -894,6 +894,8 @@ async function upsertCourse(manifest: CourseManifest | null) {
     difficulty: meta.difficulty,
     estimatedHours: meta.estimatedHours,
     category: manifest?.category === "soft-skills" ? ("SOFT_SKILLS" as const) : ("TECH" as const),
+    subcategory: manifest?.subcategory ?? null,
+    tags: manifest?.tags ?? [],
     coverUrl: meta.coverUrl ?? null,
     familySlug: meta.family ?? null,
     variantFamily: manifest?.variantFamily as unknown as Prisma.InputJsonValue | undefined,

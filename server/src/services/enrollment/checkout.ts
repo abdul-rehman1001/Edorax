@@ -20,9 +20,9 @@ export async function loadCheckout(courseSlug: string, userId: string): Promise<
     ? await prisma.instructorCoupon.findMany({
         where: { courseId: course.id, active: true, autoApply: true, redemptionCount: { lt: 1000000 }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
         orderBy: [{ percentOff: "desc" }, { createdAt: "asc" }],
-        select: { percentOff: true, label: true, maxRedemptions: true, redemptionCount: true },
+        include: { campaign: true },
       }).then((offers) => {
-        const coupon = offers.find((offer) => offer.redemptionCount < offer.maxRedemptions);
+        const coupon = offers.find((offer) => offer.redemptionCount < offer.maxRedemptions && (!offer.campaign || (offer.campaign.active && offer.campaign.redemptionCount < offer.campaign.maxRedemptions && (!offer.campaign.expiresAt || offer.campaign.expiresAt > new Date()))));
         return coupon ? { percentOff: coupon.percentOff, label: coupon.label } : null;
       })
     : null;

@@ -15,6 +15,8 @@ export type CatalogCourseSummary = {
   estimatedHours: number | null;
   /** Catalog grouping shown as tiles: technical courses and soft-skills courses. */
   category: CourseCategory;
+  subcategory: string | null;
+  tags: string[];
   pricingType: CoursePricingType;
   priceCents: number;
   currency: string;

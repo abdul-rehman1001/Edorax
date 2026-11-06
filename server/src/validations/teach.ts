@@ -59,6 +59,8 @@ export const courseSettingsBody = z.object({
   estimatedHours: z.union([z.literal(""), z.coerce.number().int().min(1).max(1000)]),
   // Optional so older clients keep working; omitted means "leave the category as it is".
   category: z.enum(["TECH", "SOFT_SKILLS"]).optional(),
+  subcategory: z.string().trim().max(80).nullable().optional(),
+  tags: z.array(z.string().trim().min(1).max(32)).max(12).optional(),
   sequential: z.boolean(),
   /** Text open questions grade with the learner's OpenRouter key instead of the mentor queue. */
   autoGradeOpenQuestions: z.boolean(),

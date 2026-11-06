@@ -66,17 +66,28 @@ export async function createSelfEnrollment(
     let amountCents = course.priceCents;
     if (couponCode || course.pricingType === "PAID") {
       if (course.pricingType !== "PAID") throw new SelfEnrollmentError("COUPON_NOT_APPLICABLE", "Coupons are only available for paid courses.");
-      const found = couponCode
-        ? await tx.instructorCoupon.findUnique({ where: { code: couponCode } })
-        : (await tx.instructorCoupon.findMany({
+      const offers = couponCode
+        ? []
+        : await tx.instructorCoupon.findMany({
             where: { courseId: course.id, active: true, autoApply: true, redemptionCount: { lt: 1000000 }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+            include: { campaign: true },
             orderBy: [{ percentOff: "desc" }, { createdAt: "asc" }],
-          })).find((candidate) => candidate.redemptionCount < candidate.maxRedemptions) ?? null;
+          });
+      const found = couponCode
+        ? await tx.instructorCoupon.findUnique({ where: { courseId_code: { courseId: course.id, code: couponCode } }, include: { campaign: true } })
+        : offers.find((candidate) => candidate.redemptionCount < candidate.maxRedemptions && (!candidate.campaign || (candidate.campaign.active && candidate.campaign.redemptionCount < candidate.campaign.maxRedemptions && (!candidate.campaign.expiresAt || candidate.campaign.expiresAt > new Date())))) ?? null;
       if (!couponCode && !found) {
         // No automatic offer applies; continue at the regular course price.
       } else {
-        if (!found || found.courseId !== course.id || !found.active || (found.expiresAt && found.expiresAt <= new Date())) {
+        if (!found || !found.active || (found.expiresAt && found.expiresAt <= new Date()) || (found.campaignId && (!found.campaign?.active || found.campaign.redemptionCount >= found.campaign.maxRedemptions || (found.campaign.expiresAt && found.campaign.expiresAt <= new Date())))) {
           throw new SelfEnrollmentError("COUPON_INVALID", "This coupon is invalid or expired.");
+        }
+        if (found.campaignId) {
+          const campaignReserved = await tx.courseDiscountCampaign.updateMany({
+            where: { id: found.campaignId, active: true, redemptionCount: { lt: found.campaign!.maxRedemptions }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+            data: { redemptionCount: { increment: 1 } },
+          });
+          if (!campaignReserved.count) throw new SelfEnrollmentError("COUPON_EXHAUSTED", "This discount has no redemptions remaining.");
         }
         const reserved = await tx.instructorCoupon.updateMany({
           where: { id: found.id, active: true, redemptionCount: { lt: found.maxRedemptions }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },

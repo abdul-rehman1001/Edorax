@@ -124,6 +124,8 @@ export type CourseBuilderCourse = {
   difficulty: string | null;
   estimatedHours: number | null;
   category: CourseCategory;
+  subcategory: string | null;
+  tags: string[];
   sequential: boolean;
   coverUrl: string | null;
   status: CourseStatus;
@@ -142,7 +144,7 @@ export type CourseBuilderView = {
 
 export type CourseSettingsView = Pick<CourseBuilderCourse,
   "id" | "slug" | "title" | "description" | "projectGoal" | "difficulty" |
-  "estimatedHours" | "category" | "sequential" | "coverUrl" | "status" | "pricingType" |
+  "estimatedHours" | "category" | "subcategory" | "tags" | "sequential" | "coverUrl" | "status" | "pricingType" |
   "priceCents" | "currency"
 > & {
   autoGradeOpenQuestions: boolean;

@@ -100,6 +100,10 @@ export const CourseManifestSchema = z.object({
   estimatedHours: z.number().int().positive(),
   /** Catalog grouping: "tech" (default) or "soft-skills". */
   category: z.enum(["tech", "soft-skills"]).default("tech"),
+  /** Learner-facing topic within the broad category, for example AI, Full Stack, or AWS. */
+  subcategory: z.string().trim().min(1).max(80).optional(),
+  /** Normalized search and filtering terms displayed in Explore courses. */
+  tags: z.array(z.string().trim().min(1).max(32)).max(12).default([]),
   coverUrl: z.string().url().optional(),
   /**
    * Opt in to listen-along audio. `agent-ip/scripts/narrate/narrate.py` reads this block and
