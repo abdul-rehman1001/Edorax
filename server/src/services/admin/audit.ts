@@ -19,6 +19,7 @@ export const ADMIN_AUDIT_ACTIONS = {
   COURSE_REQUEST_APPROVE: "course-request.approve",
   COURSE_REQUEST_REJECT: "course-request.reject",
   MANUAL_ACCESS_APPROVE: "manual-access.approve",
+  MANUAL_ACCESS_REJECT: "manual-access.reject",
   MANUAL_INSTRUCTOR_PAYOUT_PAID: "manual-instructor-payout.paid",
   COURSE_SET_STATUS: "course.set-status",
   DISCOUNT_CAMPAIGN_CREATE: "discount-campaign.create",

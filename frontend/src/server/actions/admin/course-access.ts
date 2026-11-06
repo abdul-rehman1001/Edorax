@@ -14,6 +14,16 @@ export async function approveCourseAccessAction(_prev: AdminActionState, formDat
   });
 }
 
+export async function rejectCourseAccessAction(_prev: AdminActionState, formData: FormData): Promise<AdminActionState> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { ok: false, message: "Missing enrollment." };
+  return runAdminAction(async () => {
+    await adminCall<void>(`/api/v1/admin/manual-access/${encodeURIComponent(id)}/reject`, { method: "POST" });
+    revalidatePath("/admin/course-access");
+    return "Course access request rejected.";
+  });
+}
+
 export async function markInstructorPayoutPaidAction(_prev: AdminActionState, formData: FormData): Promise<AdminActionState> {
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing enrollment." };
