@@ -122,7 +122,7 @@ describe("repository course publishing selection", () => {
     const manifest = selectedPackages(root)[0]!.manifest;
     expect(manifest.category).toBe("cloud-devops");
     const current = { title: "Example", description: "Example course", projectGoal: "Learn a skill", difficulty: "Beginner",
-      estimatedHours: 2, category: "TECH" as const, coverUrl: null, assistant: null };
+      estimatedHours: 2, category: "TECH" as const, coverUrl: null, assistant: null, tags: [] };
     expect(courseDetailsUpdate(manifest, current)).toEqual({ category: "CLOUD_DEVOPS" });
     expect(courseDetailsUpdate(manifest, { ...current, category: "CLOUD_DEVOPS" })).toBeNull();
   });
