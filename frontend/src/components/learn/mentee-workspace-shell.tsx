@@ -47,7 +47,7 @@ export function MenteeWorkspaceShell({
   const items: LearnerNavItem[] = [
     { label: "Home", href: "/dashboard", icon: Home, active: pathname === "/dashboard" },
     {
-      label: "My courses",
+      label: "My learning",
       href: "/my-courses",
       icon: BookOpenText,
       active: pathname === "/my-courses",

@@ -76,7 +76,7 @@ export default async function CourseOverviewPage({
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
-          My courses
+          My learning
         </Link>
         <div className="mt-16 flex flex-col items-center text-center">
           <Lock className="size-8 text-muted-foreground/50" aria-hidden />

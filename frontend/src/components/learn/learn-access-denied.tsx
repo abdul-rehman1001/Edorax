@@ -36,7 +36,7 @@ export function LearnAccessDenied({
               title: "Course access unavailable",
               body: "This enrollment is not active. Contact support if this looks wrong.",
               href: "/my-courses",
-              cta: "My courses",
+              cta: "My learning",
             };
 
   return (

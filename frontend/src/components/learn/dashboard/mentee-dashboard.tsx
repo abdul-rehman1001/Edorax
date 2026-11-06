@@ -328,7 +328,7 @@ function CourseListPreview({ courses }: { courses: DashboardCourse[] }) {
     <section aria-labelledby="courses-preview-heading" className="min-w-0 border-t border-border pt-8 sm:pt-10">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 id="courses-preview-heading" className="text-lg font-semibold tracking-tight">My courses</h2>
+          <h2 id="courses-preview-heading" className="text-lg font-semibold tracking-tight">My learning</h2>
           <p className="mt-1 text-sm text-muted-foreground">Pick up where you left off.</p>
         </div>
         <Link
@@ -430,7 +430,7 @@ export function MenteeCourseList({ courses, showHeading = true, primaryCourseId 
   const orderedCourses = [...courses].sort((a, b) => Number(b.id === primaryCourseId) - Number(a.id === primaryCourseId));
   return (
     <section aria-labelledby={showHeading ? "courses-heading" : undefined}>
-      {showHeading ? <div><h2 id="courses-heading" className="text-lg font-semibold tracking-tight">My courses</h2><p className="mt-1 text-sm text-muted-foreground">All assigned courses and their next available steps.</p></div> : null}
+      {showHeading ? <div><h2 id="courses-heading" className="text-lg font-semibold tracking-tight">My learning</h2><p className="mt-1 text-sm text-muted-foreground">All assigned courses and their next available steps.</p></div> : null}
       <div className={cn("grid grid-cols-1 gap-4 lg:grid-cols-2", showHeading && "mt-4")}>
         {orderedCourses.map((course) => <CourseCard key={course.id} course={course} featured={course.id === primaryCourseId && course.state !== "COMPLETED"} />)}
       </div>
