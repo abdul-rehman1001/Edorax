@@ -3,6 +3,7 @@
 @import '@fontsource-variable/jetbrains-mono';
 @import '@fontsource/unbounded/700.css';
 @import '@buildment/learning-ui/course-theme.css';
+@import '@buildment/learning-ui/mascot.css';
 @custom-variant dark (&:where(.dark, .dark *));
 @source '../../node_modules/@buildment/learning-ui/src';
 @source '../';

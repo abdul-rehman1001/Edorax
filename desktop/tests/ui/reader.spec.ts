@@ -43,6 +43,8 @@ test('native reader submits quizzes, saves completion, enforces locks and signs 
         ];
       window.buildment = {
         webOrigin: async () => 'https://edorax.com',
+        openWeb: async () => {},
+        onNotification: () => () => {},
         integrityRequest: async (path, _method, body) => {
           if (path.endsWith('/integrity'))
             return {
@@ -241,6 +243,10 @@ test('native reader submits quizzes, saves completion, enforces locks and signs 
             throw new Error('Quiz chapters must use batch submission');
           },
           saveLog: async () => ({ ok: true, data: null }),
+          track: async () => ({
+            ok: true,
+            data: { events: [], reaction: null },
+          }),
           checklist: async () => ({ ok: true, data: null }),
         },
       };

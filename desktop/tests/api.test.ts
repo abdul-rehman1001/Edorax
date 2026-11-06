@@ -5,6 +5,13 @@ import { filterCourses } from '../src/domain/catalog';
 import { courses, courseDetail } from './fixtures';
 import { createPreviewClient } from '../src/api';
 import { createBrowserAuth } from '../src/auth/browser-auth';
+import {
+  createNotificationStream,
+  notificationFrom,
+  parseSseFrames,
+} from '../src/api/notification-stream';
+import { createLiveNotifications } from '../src/ui/mascot/live-notifications';
+import type { NotificationItem } from '../../server/src/shared/api/notifications';
 import { createHash } from 'node:crypto';
 
 test('catalog uses the existing envelope and fixed endpoint', async () => {
@@ -520,4 +527,206 @@ test('home catalog includes the private session after login and removes it after
   const signedOut = await client.listCourses();
   assert.equal(signedOut.ok && signedOut.courses[0].enrollmentLifecycle, null);
   assert.deepEqual(seen, [null, 'Bearer private-session', null]);
+});
+
+test('stream frames are split across chunks and only complete ones are read', () => {
+  const first = parseSseFrames(
+    'retry: 5000\n: connected\n\nevent: notification:new\ndata: {"a":',
+  );
+  assert.deepEqual(first.frames, []);
+  const second = parseSseFrames(first.rest + '1}\n\n: heartbeat\n\n');
+  assert.deepEqual(second.frames, [
+    { event: 'notification:new', data: '{"a":1}' },
+  ]);
+  assert.equal(second.rest, '');
+});
+
+test('only well-formed new notifications leave the stream', () => {
+  const data = JSON.stringify({
+    notification: { id: 'n1', type: 'help.reply' },
+    unreadCount: 1,
+  });
+  assert.equal(notificationFrom({ event: 'notification:new', data })?.id, 'n1');
+  assert.equal(notificationFrom({ event: 'notification:read', data }), null);
+  assert.equal(
+    notificationFrom({ event: 'notification:new', data: '{' }),
+    null,
+  );
+  assert.equal(
+    notificationFrom({
+      event: 'notification:new',
+      data: '{"notification":{}}',
+    }),
+    null,
+  );
+});
+
+const sseResponse = (text: string) =>
+  new Response(new Blob([text]).stream(), { status: 200 });
+const pushed = (id: string) =>
+  `event: notification:new\ndata: ${JSON.stringify({ notification: { id, type: 'help.reply' } })}\n\n`;
+
+test('notification stream reconnects after a drop and stops on a rejected session', async () => {
+  const responses = [
+    sseResponse(pushed('n1')),
+    new Response(null, { status: 500 }),
+    sseResponse(pushed('n2')),
+    new Response(null, { status: 401 }),
+  ];
+  const received: string[] = [];
+  const waits: number[] = [];
+  const opened: boolean[] = [];
+  let finished = () => undefined as void;
+  const done = new Promise<void>((resolve) => {
+    finished = resolve;
+  });
+  const stream = createNotificationStream(
+    async () => {
+      opened.push(true);
+      const next = responses.shift()!;
+      if (!responses.length) setTimeout(finished, 10);
+      return next;
+    },
+    (item) => received.push(item.id),
+    async (ms) => {
+      waits.push(ms);
+    },
+  );
+  stream.start();
+  await done;
+  assert.deepEqual(received, ['n1', 'n2']);
+  assert.equal(opened.length, 4);
+  assert.deepEqual(waits, [2_000, 5_000, 2_000]);
+});
+
+test('notification stream never opens signed out, and stop ends a running loop', async () => {
+  let opens = 0;
+  const signedOut = createNotificationStream(
+    async () => {
+      opens += 1;
+      return null;
+    },
+    () => undefined,
+  );
+  signedOut.start();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(opens, 1);
+
+  let aborted = false;
+  const running = createNotificationStream(
+    (signal) =>
+      new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => {
+          aborted = true;
+          reject(new Error('aborted'));
+        });
+      }),
+    () => undefined,
+  );
+  running.start();
+  running.stop();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(aborted, true);
+});
+
+test('the stream carries the session token and sign-out removes it', async () => {
+  const headers: Array<string | null> = [];
+  const client = createPreviewClient('http://localhost:4000', (async (
+    url: string,
+    init: RequestInit,
+  ) => {
+    if (String(url).endsWith('/stream')) {
+      headers.push(new Headers(init.headers).get('authorization'));
+      return new Response('');
+    }
+    return Response.json({
+      success: true,
+      data: { session: { token: 'private-session' } },
+    });
+  }) as typeof fetch);
+  const signal = new AbortController().signal;
+  assert.equal(await client.openNotificationStream(signal), null);
+  await client.exchange('a'.repeat(43), 'b'.repeat(43));
+  await client.openNotificationStream(signal);
+  assert.deepEqual(headers, ['Bearer private-session']);
+  await client.signOut();
+  assert.equal(await client.openNotificationStream(signal), null);
+});
+
+test('mascot events go out as desktop, with only the known fields', async () => {
+  const bodies: unknown[] = [];
+  const client = createPreviewClient('http://localhost:4000', (async (
+    url: string,
+    init: RequestInit,
+  ) => {
+    if (String(url).endsWith('/exchange'))
+      return Response.json({
+        success: true,
+        data: { session: { token: 'private-session' } },
+      });
+    bodies.push(JSON.parse(String(init.body)));
+    return Response.json({
+      success: true,
+      data: { events: [], reaction: null },
+    });
+  }) as typeof fetch);
+  const moment = { type: 'chapter_completed', chapterId: 'c1' } as const;
+  assert.equal((await client.learning.track(moment)).ok, false);
+  await client.exchange('a'.repeat(43), 'b'.repeat(43));
+  const result = await client.learning.track({
+    ...moment,
+    reading: true,
+    area: 'chapter',
+    platform: 'web',
+    userId: 'someone-else',
+  } as never);
+  assert.equal(result.ok, true);
+  assert.deepEqual(bodies, [
+    {
+      type: 'chapter_completed',
+      chapterId: 'c1',
+      area: 'chapter',
+      reading: true,
+      platform: 'desktop',
+    },
+  ]);
+  const bad = await client.learning.track({ type: '' } as never);
+  assert.equal(!bad.ok && bad.code, 'INVALID_INPUT');
+});
+
+test('live notifications arrive once, fresh, and wait for a hidden window', () => {
+  const start = Date.parse('2026-10-31T12:00:00.000Z');
+  let clock = start;
+  let visible = true;
+  const shown: string[] = [];
+  const live = createLiveNotifications(
+    (item) => shown.push(item.id),
+    () => visible,
+    () => clock,
+  );
+  const at = (id: string, createdAt: number) =>
+    ({ id, createdAt: new Date(createdAt).toISOString() }) as NotificationItem;
+
+  live.receive(at('fresh', start));
+  live.receive(at('fresh', start));
+  live.receive(at('stale', start - 61_000));
+  assert.deepEqual(shown, ['fresh']);
+
+  visible = false;
+  live.receive(at('held', start));
+  live.receive(at('too-long', start));
+  live.flush();
+  assert.deepEqual(shown, ['fresh']);
+
+  visible = true;
+  clock = start + 4 * 60_000;
+  live.flush();
+  assert.deepEqual(shown, ['fresh', 'held', 'too-long']);
+
+  visible = false;
+  live.receive(at('expired', clock));
+  visible = true;
+  clock += 6 * 60_000;
+  live.flush();
+  assert.equal(shown.includes('expired'), false);
 });

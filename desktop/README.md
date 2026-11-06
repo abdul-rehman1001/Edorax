@@ -54,6 +54,12 @@ Start learning opens a native React reader in the desktop app, with course curri
 
 Reader state, parsing, and IPC adapters live in src/ui/learning/ and src/learning/. Course-block renderers live in ../packages/learning-ui and are registered through its shared src/lesson-blocks.tsx map, also used by web. This includes labs, course content blocks, exercises, Checklist, and Learning Log. Keep desktop API/IPC work in host adapters and use the package components for block presentation and interaction. Both apps install the package as @buildment/learning-ui; after editing it, run install in each app to refresh its local snapshot. Desktop quizzes use the shared integrity hook through an IPC transport: focus and clipboard events, fullscreen reminders, and optional camera snapshots follow the web rules. Signals are advisory mentor notes and never automatically fail a learner. Snapshot capture requires consent; screenshot detection is best effort.
 
+## Mascot
+
+Desktop shows the same mascot as web. The player and runtime are shared from `@buildment/learning-ui/mascot/*`, the API decides each reaction, and `src/ui/mascot/mascot.ts` is the adapter that connects them over IPC. Screens only call `trackMoment` or `useMascot`, and report where the learner is with `setMascotPath`. Live notifications are read in the main process, so the session token never reaches the renderer. See [docs/13-engagement.mdx](../docs/13-engagement.mdx).
+
+Electron Forge needs Node 22.13 or newer. Run the UI tests with `--workers=1`: several specs race Vite's first load when run in parallel.
+
 ## Enrolled course overview
 
 After enrollment, desktop uses the same `CourseOverviewContent` and variant picker as web from `@buildment/learning-ui`. The learner overview endpoint supplies progress, pending reviews, chapter checkpoints and locks, resume links, and course tracks. Keep presentation changes in the shared package; desktop's `EnrolledCourse` adapter owns IPC requests and native lesson navigation. Project showcase images use the configured `BUILDMENT_WEB_URL` origin. Variant and specialisation choices use narrowly scoped `learning:update-track` IPC calls; credentials remain in the main process.

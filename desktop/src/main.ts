@@ -9,7 +9,7 @@ import {
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { backendBase } from './api';
-import { createPreviewClient } from './api';
+import { createNotificationStream, createPreviewClient } from './api';
 import { createBrowserAuth } from './auth/browser-auth';
 
 app.setName('Edorax');
@@ -21,11 +21,14 @@ const appIcon = app.isPackaged
 
 let mainWindow: BrowserWindow | null = null;
 const apiBase = process.env.BUILDMENT_API_URL || 'http://localhost:4000';
+const webBase = process.env.BUILDMENT_WEB_URL || 'http://localhost:3000';
 const previewClient = createPreviewClient(apiBase);
-const browserAuth = createBrowserAuth(
-  process.env.BUILDMENT_WEB_URL || 'http://localhost:3000',
-  previewClient.exchange,
-  (url) => shell.openExternal(url),
+const notificationStream = createNotificationStream(
+  previewClient.openNotificationStream,
+  (item) => mainWindow?.webContents.send('mascot:notification', item),
+);
+const browserAuth = createBrowserAuth(webBase, previewClient.exchange, (url) =>
+  shell.openExternal(url),
 );
 function cancelBrowserAuth() {
   previewClient.cancelSignIn();
@@ -33,6 +36,7 @@ function cancelBrowserAuth() {
 }
 app.on('before-quit', () => {
   cancelBrowserAuth();
+  notificationStream.stop();
 });
 function requireRenderer(event: IpcMainInvokeEvent) {
   if (
@@ -133,8 +137,18 @@ else {
     });
     ipcMain.handle('app:web-origin', (event) => {
       requireRenderer(event);
-      return new URL(process.env.BUILDMENT_WEB_URL || 'http://localhost:3000')
-        .origin;
+      return new URL(webBase).origin;
+    });
+    ipcMain.handle('app:open-web', (event, path) => {
+      requireRenderer(event);
+      // App paths only: a mascot's link can never open another site from here.
+      if (
+        typeof path !== 'string' ||
+        !path.startsWith('/') ||
+        path.startsWith('//')
+      )
+        return;
+      return shell.openExternal(new URL(path, webBase).href);
     });
     ipcMain.handle('learning:integrity', (event, path, method, body) => {
       requireRenderer(event);
@@ -180,6 +194,10 @@ else {
       requireRenderer(event);
       return previewClient.learning.saveLog(id, answers);
     });
+    ipcMain.handle('learning:track', (event, moment) => {
+      requireRenderer(event);
+      return previewClient.learning.track(moment);
+    });
     ipcMain.handle('learning:checklist', (event, id, item, checked) => {
       requireRenderer(event);
       return previewClient.learning.checklist(id, item, checked);
@@ -195,6 +213,7 @@ else {
     ipcMain.handle('auth:sign-in', async (event) => {
       requireRenderer(event);
       const result = await browserAuth.start();
+      if (result.ok) notificationStream.start();
       if (result.ok && mainWindow) {
         mainWindow.show();
         mainWindow.focus();
@@ -208,6 +227,7 @@ else {
     ipcMain.handle('auth:sign-out', (event) => {
       requireRenderer(event);
       cancelBrowserAuth();
+      notificationStream.stop();
       return previewClient.signOut();
     });
     ipcMain.handle('catalog:list', (event) => {

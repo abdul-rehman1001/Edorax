@@ -2,6 +2,7 @@ import type {
   CatalogCourseSummary,
   CatalogCourseDetail,
 } from '../../../server/src/shared/api/catalog';
+import type { NotificationItem } from '../../../server/src/shared/api/notifications';
 
 export type Course = CatalogCourseSummary;
 export type CourseDetail = CatalogCourseDetail & { signedIn: boolean };
@@ -15,6 +16,10 @@ export type EnrollmentResult = { lifecycle: 'ACTIVE' | 'PAYMENT_REQUIRED' };
 export interface DesktopAPI {
   readonly platform?: string;
   webOrigin(): Promise<string>;
+  /** Opens a page of the web app in the default browser. */
+  openWeb(path: string): Promise<void>;
+  /** Live notifications for the signed-in user; returns an unsubscribe function. */
+  onNotification(listener: (item: NotificationItem) => void): () => void;
   integrityRequest(
     path: string,
     method: string,

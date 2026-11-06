@@ -5,6 +5,10 @@ import type {
 import type { Result } from '../domain/catalog';
 import type { Lesson, BlockState, AnswerResult } from '../domain/learning';
 import type { AiInterviewSessionResult } from '../../../server/src/shared/api/ai';
+import type {
+  TrackEventRequest,
+  TrackEventResult,
+} from '../../../server/src/shared/api/engagement';
 import { parseLesson } from '../learning/parse-lesson';
 import { isRecord } from './validation';
 type Request = (
@@ -195,6 +199,34 @@ export function createLearningClient(request: Request) {
         'PUT',
         { answers },
       );
+    },
+    /** Reports a learning moment; only the fields below ever reach the API. */
+    async track(event: TrackEventRequest): Promise<Result<TrackEventResult>> {
+      if (
+        !isRecord(event) ||
+        !valid(event.type) ||
+        (event.courseId !== undefined && !valid(event.courseId)) ||
+        (event.chapterId !== undefined && !valid(event.chapterId)) ||
+        (event.area !== undefined && !valid(event.area))
+      )
+        return invalid;
+      const { type, courseId, chapterId, area } = event;
+      const result = await request('/api/v1/events', 'POST', {
+        type,
+        courseId,
+        chapterId,
+        area,
+        reading: event.reading === true,
+        platform: 'desktop',
+      });
+      if (!result.ok) return result;
+      if (!isRecord(result.data) || !Array.isArray(result.data.events))
+        return {
+          ok: false,
+          code: 'INVALID_RESPONSE',
+          message: 'Could not read the mascot response.',
+        };
+      return { ok: true, data: result.data as TrackEventResult };
     },
     async checklist(id: string, item: string, checked: boolean) {
       if (!valid(id) || !valid(item) || typeof checked !== 'boolean')

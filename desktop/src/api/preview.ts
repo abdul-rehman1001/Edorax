@@ -1,3 +1,4 @@
+import { NOTIFICATION_STREAM_PATH } from '@buildment/learning-ui/shared/api/notifications';
 import { createLearningClient } from './learning';
 import { backendBase, isCourse } from './catalog';
 import { isRecord as record, isCourseDetail as isDetail } from './validation';
@@ -203,6 +204,20 @@ export function createPreviewClient(
           message: 'The service returned an invalid lesson address.',
         };
       return { ok: true, data: { href } };
+    },
+    /** Opens the live notification stream, or null when signed out. The token stays here. */
+    async openNotificationStream(
+      signal: AbortSignal,
+    ): Promise<Response | null> {
+      if (!token) return null;
+      return request(backendBase(base) + NOTIFICATION_STREAM_PATH, {
+        headers: {
+          Accept: 'text/event-stream',
+          Authorization: 'Bearer ' + token,
+        },
+        redirect: 'error',
+        signal,
+      });
     },
     cancelSignIn() {
       authVersion++;

@@ -5,6 +5,7 @@ import type { Course, CourseDetail } from '../../domain/catalog';
 import { SignInPrompt } from '../auth/SignInPrompt';
 import { Curriculum } from './Curriculum';
 import { CourseSummary } from './CourseSummary';
+import { trackMoment } from '../mascot/mascot';
 
 const button =
   'rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50';
@@ -44,6 +45,8 @@ export function CoursePreview({
     const request = generation.current;
     try {
       const result = await window.buildment.enroll(course.id);
+      if (result.ok && result.data.lifecycle === 'ACTIVE')
+        trackMoment({ type: 'enrolled', courseId: course.id });
       if (!live.current || request !== generation.current) return;
       if (
         result.ok ||

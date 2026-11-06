@@ -7,6 +7,7 @@ import { lessonAsset } from './blocks/assets';
 import { BlockBoundary } from './blocks/BlockBoundary';
 import { Checklist } from '@buildment/learning-ui/components/learn/checklist';
 import { LearningLog } from '@buildment/learning-ui/components/learn/learning-log';
+import { trackMoment } from '../mascot/mascot';
 
 type Props = {
   node: LessonNode;
@@ -198,7 +199,13 @@ export function LessonContent(props: Props): React.ReactNode {
               lesson.chapter.id,
               answers,
             );
-            if (result.ok) onSaved();
+            if (result.ok) {
+              trackMoment({
+                type: 'notes_saved',
+                chapterId: lesson.chapter.id,
+              });
+              onSaved();
+            }
             return { ok: result.ok };
           }}
         />

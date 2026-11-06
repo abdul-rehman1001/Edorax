@@ -6,6 +6,8 @@ import { CourseCatalog } from './courses/CourseCatalog';
 import { Sidebar } from './layout/Sidebar';
 import { WorkspaceHeader } from './layout/WorkspaceHeader';
 import { useSession } from './auth/useSession';
+import { DesktopMascot } from './mascot/DesktopMascot';
+import { setMascotPath } from './mascot/mascot';
 
 export function App() {
   const [selected, setSelected] = useState<Course | null>(null);
@@ -36,6 +38,11 @@ export function App() {
           ?.focus({ preventScroll: true });
     });
   }
+  useEffect(() => {
+    // The reader reports its own chapter; a parent's effect runs after it and must not undo that.
+    if (!reading)
+      setMascotPath(selected ? `/courses/${selected.slug}` : '/catalog');
+  }, [reading, selected?.slug]);
   useEffect(() => {
     document.documentElement.dataset.appReady = 'true';
     document.getElementById('startup-status')?.setAttribute('hidden', '');
@@ -81,6 +88,19 @@ export function App() {
   const visible = filterCourses(courses, query, category);
   const categories = [...new Set(courses.map((course) => course.category))];
 
+  /** A chapter of a catalog course opens in the reader; anything else belongs to the web app. */
+  function openMascotLink(href: string) {
+    const [, section, slug, lesson] = href.split('?')[0]!.split('/');
+    const course =
+      section === 'courses' && lesson
+        ? courses.find((candidate) => candidate.slug === slug)
+        : undefined;
+    if (!course) return void window.buildment.openWeb(href);
+    setSelected(course);
+    setChapter(decodeURIComponent(lesson!));
+    setReading(true);
+  }
+
   function toggleSidebar() {
     setCollapsed((value) => {
       try {
@@ -94,6 +114,7 @@ export function App() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      {signedIn && <DesktopMascot onOpenLink={openMascotLink} />}
       {!(reading && signedIn) && (
         <WorkspaceHeader
           selected={Boolean(selected)}

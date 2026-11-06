@@ -23,6 +23,7 @@ import {
 } from '@buildment/learning-ui/components/learn/variant-theme';
 import { lessonHeadings } from './lesson-headings';
 import { LessonLoading } from './LessonLoading';
+import { setMascotPath, useMascot } from '../mascot/mascot';
 
 export function CourseReader({
   courseSlug,
@@ -54,6 +55,28 @@ export function CourseReader({
   const showHeadings =
     lesson?.chapter.readerMode !== 'QUIZ' &&
     !(lesson?.content?.predictGate && !lesson.content.predictRevealed);
+  const unfinished =
+    lesson && !lesson.locked && !lesson.content?.chapterComplete;
+  const { track } = useMascot({
+    watchChapter: unfinished
+      ? {
+          chapterId: lesson.chapter.id,
+          estimatedMinutes: lesson.chapter.estimatedMinutes,
+        }
+      : null,
+    // The help dialog lives in the web reader, so a mentor is asked from there.
+    onAskHelp: () => {
+      if (lesson)
+        void window.buildment.openWeb(
+          `/courses/${courseSlug}/${lesson.chapter.slug}`,
+        );
+    },
+  });
+  useEffect(() => {
+    setMascotPath(
+      `/courses/${courseSlug}/${lesson?.chapter.slug ?? initialChapter ?? 'loading'}`,
+    );
+  }, [courseSlug, lesson?.chapter.slug, initialChapter]);
   useEffect(() => {
     const media = matchMedia('(max-width: 767px)');
     const update = () => {
@@ -178,7 +201,10 @@ export function CourseReader({
         lesson.chapter.id,
       );
       if (!result.ok) fail(result);
-      else await load(lesson.chapter.slug, true);
+      else {
+        track({ type: 'chapter_completed', chapterId: lesson.chapter.id });
+        await load(lesson.chapter.slug, true);
+      }
     } catch {
       setError('Could not save lesson completion. Try again.');
     } finally {

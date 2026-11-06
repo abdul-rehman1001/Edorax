@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { QuizChapterState } from '../../../../../server/src/shared/api/blocks';
 import { useQuizIntegrity } from '@buildment/learning-ui/lib/integrity/use-quiz-integrity';
+import { QUIZ_SESSION_MARKER_ID } from '@buildment/learning-ui/mascot/MascotPlayer';
 import { integrityTransport } from './integrity-transport';
 import { IntegrityNotice } from './IntegrityNotice';
 import { Exercise } from '../Exercise';
+import { trackMoment } from '../../mascot/mascot';
 
 export function QuizSession({
   chapterId,
@@ -44,10 +46,11 @@ export function QuizSession({
   const visible = retryMissed && !perfect && missed.length ? missed : steps;
   const position = Math.min(index, visible.length - 1);
   const current = visible[position];
+  const attemptOpen =
+    steps.length > 0 && !complete && !(perfect && individualCount === 0);
   const integrity = useQuizIntegrity({
     chapterId,
-    enabled:
-      steps.length > 0 && !complete && !(perfect && individualCount === 0),
+    enabled: attemptOpen,
     rootRef: root,
     currentBlockId: current?.id || null,
     transport: integrityTransport,
@@ -135,6 +138,7 @@ export function QuizSession({
       setRevision((value) => value + 1);
       if (allCorrect && individualCount === 0) integrity.finish();
       else if (!allCorrect) void integrity.nextAttempt();
+      trackMoment({ type: 'quiz_submitted', chapterId });
       onSaved();
     } catch {
       setError(
@@ -147,6 +151,8 @@ export function QuizSession({
   if (!steps.length) return <p>No quiz questions are available yet.</p>;
   return (
     <section ref={root} aria-label="Quiz session" className="mt-7">
+      {/* While this exists the mascot holds its reaction, as it does for the web's quiz session. */}
+      {attemptOpen && <span id={QUIZ_SESSION_MARKER_ID} hidden />}
       <div className="mb-5 flex items-center justify-between text-sm">
         <span className="font-medium">
           Question {position + 1} of {visible.length}

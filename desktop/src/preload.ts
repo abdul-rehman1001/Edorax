@@ -1,9 +1,17 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import type { NotificationItem } from '../../server/src/shared/api/notifications';
 import type { DesktopAPI } from './domain/catalog';
 
 const api: DesktopAPI = {
   platform: process.platform,
   webOrigin: () => ipcRenderer.invoke('app:web-origin'),
+  openWeb: (path) => ipcRenderer.invoke('app:open-web', path),
+  onNotification: (listener) => {
+    const forward = (_event: IpcRendererEvent, item: NotificationItem) =>
+      listener(item);
+    ipcRenderer.on('mascot:notification', forward);
+    return () => ipcRenderer.removeListener('mascot:notification', forward);
+  },
   integrityRequest: (path, method, body) =>
     ipcRenderer.invoke('learning:integrity', path, method, body),
   learning: {
@@ -22,6 +30,7 @@ const api: DesktopAPI = {
     complete: (id) => ipcRenderer.invoke('learning:complete', id),
     saveLog: (id, answers) =>
       ipcRenderer.invoke('learning:save-log', id, answers),
+    track: (event) => ipcRenderer.invoke('learning:track', event),
     checklist: (id, item, checked) =>
       ipcRenderer.invoke('learning:checklist', id, item, checked),
   },
