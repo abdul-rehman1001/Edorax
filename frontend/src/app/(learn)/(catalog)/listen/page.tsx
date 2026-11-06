@@ -83,7 +83,7 @@ export default async function ListenPage() {
         title={area.name}
         status={area.status}
         mood="happy"
-        intro="Courses read aloud, chapter by chapter. Pick a course, press play and read along, or just listen on a walk. Your place in each chapter is kept on this device."
+        intro="Every course as an audiobook, chapter by chapter. Pick a course, press play and read along, or put the phone away and listen on a walk, a drive or a run. Your place in each chapter is kept on this device."
       >
         {courses.length > 0 ? (
           <dl className="flex flex-wrap gap-x-8 gap-y-3" data-testid="listen-totals">
@@ -137,8 +137,8 @@ export default async function ListenPage() {
         />
       </AreaSection>
 
-      <ComingSoonPanel title="Videos are on the way" action={{ href: "/catalog", label: "Browse courses" }}>
-        Short videos for the chapters that are easier to see than to read. They will show up here next to the audio.
+      <ComingSoonPanel title="Videos are coming to courses" action={{ href: "/catalog", label: "Browse courses" }}>
+        Short videos for the chapters that are easier to see than to read. They will sit inside each course chapter, next to the text and the audio.
       </ComingSoonPanel>
     </AreaPage>
   );

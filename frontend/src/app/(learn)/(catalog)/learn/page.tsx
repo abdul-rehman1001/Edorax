@@ -6,7 +6,7 @@ import { AreaHero, AreaPage, AreaSection, CardGrid, InfoCard } from "@/component
 
 export const metadata: Metadata = {
   title: "Everything you can learn",
-  description: "Courses, audio, labs, bite-sized practice, daily puzzles and voice agents. One place to learn tech and human skills.",
+  description: "Courses, audiobooks, labs, five-minute practice, daily puzzles and on-call tutors. One place to learn tech and human skills.",
   alternates: { canonical: "/learn" },
   openGraph: { title: "Everything you can learn on Edorax", url: "/learn", images: [SITE_SHARE_IMAGE] },
 };
@@ -21,7 +21,7 @@ export default function LearnHubPage() {
         intro="Read a course, listen to it on the go, build in a lab, practise for a few minutes, solve today's puzzle, or talk a topic through. Pick what suits your day."
       />
 
-      <AreaSection id="areas" title="The areas" intro="Courses, Listen and visual labs are open now. The rest are on the way; each page says what is coming.">
+      <AreaSection id="areas" title="The areas" intro="Courses, audiobooks and visual labs are open now. The rest are on the way; each page says what is coming.">
         <CardGrid>
           {LEARN_AREAS.map((area) => {
             const Icon = AREA_ICON[area.id];

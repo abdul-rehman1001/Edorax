@@ -6,7 +6,7 @@ import { AreaHero, AreaPage, AreaSection, CardGrid, ComingSoonPanel, InfoCard } 
 
 export const metadata: Metadata = {
   title: "Puzzles",
-  description: "A new puzzle every day, built on what you learn. The same puzzle for everyone.",
+  description: "A new puzzle every day, built on what you learn. The same puzzle for everyone, and a daily leaderboard to climb.",
   alternates: { canonical: "/puzzles" },
   openGraph: { title: "Daily puzzles on Edorax", url: "/puzzles", images: [SITE_SHARE_IMAGE] },
 };
@@ -20,7 +20,7 @@ export default function PuzzlesPage() {
         title="Daily puzzles"
         status={area.status}
         mood="wink"
-        intro="One small puzzle a day, the same for everyone. Each one uses an idea from the courses, so a good guess turns into something you understand."
+        intro="One small puzzle a day, the same for everyone. Solve it, see where you landed on today's leaderboard, and come back tomorrow. Each one uses an idea from the courses, so a good guess turns into something you understand."
       />
 
       <AreaSection id="kinds" title="Kinds of puzzle" intro="Several kinds take turns through the week, so no two days feel the same.">
@@ -36,7 +36,7 @@ export default function PuzzlesPage() {
         <CardGrid>
           <InfoCard icon={<CalendarDays className="size-6" />} title="One a day" body="A new puzzle at midnight in your time zone. Missed one? Yesterday's stays open to practise." />
           <InfoCard title="A few tries" body="You get a few attempts. Each wrong try shows a clue, so you learn something either way." />
-          <InfoCard icon={<Trophy className="size-6" />} title="Leaderboard later" body="The mobile app will add a daily leaderboard. Joining it will be your choice, like every leaderboard on Edorax." />
+          <InfoCard icon={<Trophy className="size-6" />} title="Daily leaderboard" body="Fewer tries and a faster solve put you higher on today's board. It resets every day, so everyone starts level. Joining it is your choice, like every leaderboard on Edorax." />
         </CardGrid>
       </AreaSection>
 

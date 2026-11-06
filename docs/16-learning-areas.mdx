@@ -20,9 +20,9 @@ area section is written so one work session can pick it up on its own.
 | Courses | `/catalog`, `/my-courses`, `/courses/...` | Open | Full courses: read, play, listen, prove. |
 | Listen | `/listen` | Open | Every course with listen-along audio, its chapters and hours. Videos later. |
 | Labs | `/labs` | Partly open | Visual labs open; guided and shell labs planned. |
-| Bite-sized practice | `/practice` | Coming soon | One topic a few minutes a day, led by questions. |
+| Five-minute practice | `/practice` | Coming soon | One topic a few minutes a day, led by questions. |
 | Puzzles | `/puzzles` | Coming soon | Several kinds of daily puzzle. |
-| Voice agents | `/voice` | Coming soon | A voice tutor per topic that tracks progress across its modules. |
+| On-call tutors | `/voice` | Coming soon | A voice tutor per topic that tracks progress across its modules. |
 
 Lab kinds, under `/labs`:
 
@@ -55,9 +55,9 @@ frontend/src/app/(learn)/(catalog)/
       [slug]/              One visual lab, the same board a chapter embeds
     guided/                Guided labs (coming soon page)
     shell/                 Shell labs and the desktop app docs (coming soon page)
-  practice/                Bite-sized practice (coming soon page)
+  practice/                Five-minute practice (coming soon page)
   puzzles/                 Puzzles (coming soon page)
-  voice/                   Voice agents (coming soon page)
+  voice/                   On-call tutors (coming soon page)
 ```
 
 **Navigation.**
@@ -166,7 +166,7 @@ containers and small networks the learner can break and fix.
 - The web page `/labs/shell` explains this and carries the desktop app docs (`#desktop`). Link
   downloads there when the app is packaged and signed.
 
-## Bite-sized practice (planned)
+## Five-minute practice (planned)
 
 Master one topic (System Design first) in short daily sessions. It leads with questions: the learner
 answers first, and when they cannot, Dot helps them work the answer out (a smaller question, then a
@@ -198,7 +198,7 @@ Several kinds of daily puzzle that use course ideas, one a day, the same for eve
 - Leaderboard: the mobile app adds a daily leaderboard later. It must be opt-in, like the weekly
   leaderboards.
 
-## Voice agents (planned)
+## On-call tutors (planned)
 
 One voice agent per topic. The learner calls it; it greets them ("Welcome to System Design, how are
 you doing today, should we get started?"), asks their level (beginner, intermediate, advanced) and
@@ -217,10 +217,10 @@ that fit the level. It tracks progress across the topic's 40 to 50 modules, so t
 ## Suggested build order
 
 1. Visual lab results and XP (small, builds on what exists).
-2. Bite-sized practice for System Design (reuses quiz grading, XP and streaks).
+2. Five-minute practice for System Design (reuses quiz grading, XP and streaks).
 3. Daily puzzles (reuses the lab board for the diagram kinds).
 4. Shell and guided labs with the desktop app's lab contract.
-5. Voice agents (the most new infrastructure).
+5. On-call tutors (the most new infrastructure).
 
 ## House rules for every area
 

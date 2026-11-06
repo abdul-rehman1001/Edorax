@@ -56,6 +56,7 @@ const VISUALS: Record<LearnAreaId, ReactNode> = {
         {["Read", "Play", "Listen", "Prove"].map((w) => (
           <span key={w} style={{ background: "#FFFFFF", fontSize: "12px", fontWeight: 700, padding: "3px 7px" }}>{w}</span>
         ))}
+        <span style={{ border: `1px dashed ${MUTED}`, color: MUTED, fontSize: "12px", fontWeight: 700, padding: "2px 6px" }}>Watch</span>
       </div>
     </div>
   ),
@@ -111,13 +112,13 @@ const VISUALS: Record<LearnAreaId, ReactNode> = {
           <span key={i} style={{ height: "28px", background: i === 6 ? YELLOW : i === 1 || i === 9 ? COBALT : "#FFFFFF" }} />
         ))}
       </div>
-      <span style={{ fontSize: "13px", color: MUTED }}>One new puzzle a day</span>
+      <span style={{ fontSize: "13px", color: MUTED }}>Today&apos;s puzzle. Today&apos;s leaderboard.</span>
     </div>
   ),
   voice: (
     <div style={PANEL}>
       <div style={{ background: "#FFFFFF", padding: "10px 12px", fontSize: "13px", lineHeight: 1.4 }}>
-        &quot;Welcome to System Design. How are you doing today? Should we get started?&quot;
+        &quot;Hi, I&apos;m your System Design tutor. What feels hard today?&quot;
       </div>
       <div aria-hidden="true" style={{ display: "flex", alignItems: "center", gap: "3px", height: "24px" }}>
         {[8, 14, 20, 12, 22, 16, 9, 18, 24, 13, 7, 15, 20, 10].map((h, i) => (
@@ -136,7 +137,7 @@ export function AreaShowcase() {
           More than courses. Six ways to learn.
         </h2>
         <p style={{ margin: "16px 0 0", color: MUTED, maxWidth: "600px" }}>
-          Read a course, listen to it on a walk, build in a lab, practise for five minutes, solve today&apos;s puzzle, or talk a topic through. Courses, audio and visual labs are open now.
+          Read a course, play it as an audiobook, build in a lab, practise for five minutes, race everyone on today&apos;s puzzle, or call a tutor and talk it through. Courses, audiobooks and visual labs are open now.
         </p>
         <div className={s.rail} style={{ marginTop: "48px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))", gap: "16px" }}>
           {LEARN_AREAS.map((area) => (
@@ -162,9 +163,9 @@ export function AreaShowcase() {
                     ))}
                   </ul>
                 ) : null}
-                {area.id === "listen" ? (
+                {area.id === "courses" ? (
                   <ul style={{ margin: "4px 0 0", padding: 0, listStyle: "none", fontSize: "14px", lineHeight: 1.5 }}>
-                    {[["Chapter audio", "Open"], ["Videos", "Soon"]].map(([name, state]) => (
+                    {[["Read, play, listen, prove", "Open"], ["Videos", "Soon"]].map(([name, state]) => (
                       <li key={name} style={{ display: "flex", justifyContent: "space-between", gap: "8px", borderTop: `1px solid ${LINE}`, padding: "5px 0" }}>
                         <span style={{ fontWeight: 700 }}>{name}</span>
                         <span style={{ color: state === "Open" ? COBALT : MUTED }}>{state}</span>
