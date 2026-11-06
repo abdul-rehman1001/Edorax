@@ -2,9 +2,17 @@ import Link from "next/link";
 import { AuthCard, AuthPageShell } from "@/components/auth/auth-page-shell";
 import { SignupForm } from "@/components/auth/signup-form";
 import { safeRedirectTo } from "@/shared/lib/safe-redirect";
+import { getSessionUser } from "@/server/auth/guards";
+import { homeRouteForRole } from "@/server/auth/access-rules";
+import { redirect } from "next/navigation";
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ redirectTo?: string }> }) {
   const redirectTo = safeRedirectTo((await searchParams).redirectTo);
+  const user = await getSessionUser();
+  if (user) {
+    if (user.role !== "ADMIN" && !user.emailVerified) redirect("/verify-email");
+    redirect(redirectTo ?? homeRouteForRole(user.role));
+  }
   return (
     <AuthPageShell>
       <AuthCard
