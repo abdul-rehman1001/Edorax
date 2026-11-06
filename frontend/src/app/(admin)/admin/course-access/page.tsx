@@ -1,5 +1,5 @@
 import { AdminActionForm } from "@/components/admin/admin-action-form";
-import { approveCourseAccessAction, markInstructorPayoutPaidAction } from "@/server/actions/admin/course-access";
+import { approveCourseAccessAction, markInstructorPayoutPaidAction, rejectCourseAccessAction } from "@/server/actions/admin/course-access";
 import { serverApiFetch } from "@/lib/api-server";
 import { requireRole } from "@/server/auth/guards";
 import { formatPriceCents } from "@/lib/format-price";
@@ -19,7 +19,10 @@ export default async function CourseAccessPage() {
     {requests.map(row => <div key={row.id} className="rounded border p-4 space-y-2">
       <p className="font-medium">{row.course.title} — {row.payment ? formatPriceCents(row.payment.amountCents, row.payment.currency) : "Payment details unavailable"}</p>
       <p>{row.user?.name} {row.user?.email}</p>
-      {row.payment && <AdminActionForm action={approveCourseAccessAction} submitLabel="Grant access" pendingLabel="Granting…" confirm={{ question: `Confirm payment for ${row.user?.email ?? "this learner"}?`, description: `Grant access to ${row.course.title} after verifying payment of ${formatPriceCents(row.payment.amountCents, row.payment.currency)}.`, confirmLabel: "Confirm payment and grant access" }}><input type="hidden" name="id" value={row.id} /></AdminActionForm>}
+      <div className="flex flex-wrap gap-2">
+        {row.payment && <AdminActionForm action={approveCourseAccessAction} submitLabel="Grant access" pendingLabel="Granting…" confirm={{ question: `Confirm payment for ${row.user?.email ?? "this learner"}?`, description: `Grant access to ${row.course.title} after verifying payment of ${formatPriceCents(row.payment.amountCents, row.payment.currency)}.`, confirmLabel: "Confirm payment and grant access" }}><input type="hidden" name="id" value={row.id} /></AdminActionForm>}
+        <AdminActionForm action={rejectCourseAccessAction} submitLabel="Reject request" pendingLabel="Rejecting…" variant="destructive" confirm={{ question: `Reject ${row.user?.email ?? "this learner"}'s request?`, description: "The request will be closed and this learner will not receive access to the course.", confirmLabel: "Reject request" }}><input type="hidden" name="id" value={row.id} /></AdminActionForm>
+      </div>
     </div>)}
     <section className="space-y-3 border-t pt-5"><h2 className="text-xl font-semibold">Instructor payouts</h2><p className="text-sm text-muted-foreground">Manual payments split 50/50. After transferring the instructor’s half outside Edorax, mark it paid here.</p>
       {payouts.length === 0 && <p>No instructor payouts are due.</p>}

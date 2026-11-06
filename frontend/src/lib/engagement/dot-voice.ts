@@ -3,6 +3,7 @@
 import { useBrowserStorage } from "@/lib/use-browser-storage";
 
 const DOT_VOICE_KEY = "buildment:dot-voice";
+const DOT_VOICE_VOLUME = 0.7;
 
 export function isDotVoiceEnabled(): boolean {
   if (typeof window === "undefined") return false;
@@ -66,6 +67,7 @@ export function playDotVoice(voiceUrl?: string, callbacks?: DotSpeechCallbacks):
     audio = new Audio(voiceUrl);
     const current = audio;
     current.preload = "auto";
+    current.volume = DOT_VOICE_VOLUME;
     current.addEventListener("playing", () => {
       if (!cancelled) callbacks?.onStart?.();
     }, { once: true });

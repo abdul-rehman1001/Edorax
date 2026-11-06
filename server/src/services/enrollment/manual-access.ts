@@ -34,6 +34,32 @@ export async function approveManualAccess(enrollmentId: string, actor: AdminActo
   });
 }
 
+/** Decline a pending paid-course access request and remove it from the admin queue. */
+export async function rejectManualAccess(enrollmentId: string, actor: AdminActor) {
+  await prisma.$transaction(async tx => {
+    const enrollment = await tx.enrollment.findUnique({ where: { id: enrollmentId } });
+    if (!enrollment || enrollment.lifecycle !== "PAYMENT_REQUIRED") {
+      throw new ConflictError("This enrollment is not awaiting access.");
+    }
+    const updated = await tx.enrollment.updateMany({
+      where: { id: enrollmentId, lifecycle: "PAYMENT_REQUIRED" },
+      data: { lifecycle: "CANCELLED", status: "DROPPED" },
+    });
+    if (!updated.count) throw new ConflictError("This enrollment is no longer awaiting access.");
+    await tx.payment.updateMany({
+      where: { enrollmentId, status: "PENDING" },
+      data: { status: "FAILED" },
+    });
+    await recordAdminAction(tx, {
+      actor,
+      action: ADMIN_AUDIT_ACTIONS.MANUAL_ACCESS_REJECT,
+      targetType: "Enrollment",
+      targetId: enrollmentId,
+      summary: "Rejected the course access request.",
+    });
+  });
+}
+
 export async function listManualInstructorPayouts() {
   const payments = await prisma.payment.findMany({
     where: { status: "SUCCEEDED", provider: "manual", instructorPayoutStatus: { in: ["PENDING", "PAID"] } },

@@ -142,7 +142,7 @@ function ReactionBubble({
       </div>
       <div
         className={cn(
-          "relative mb-2 border border-border bg-card py-2.5 pl-3.5 pr-16 text-base font-medium text-card-foreground"
+          "relative mb-2 border border-border bg-card py-2.5 pl-3.5 pr-24 text-base font-medium text-card-foreground"
         )}
       >
         {/* The full line reserves the bubble's size so it does not grow while typing. */}
