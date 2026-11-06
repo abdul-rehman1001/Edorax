@@ -12,6 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { CourseProjectShowcase } from "@/components/learn/course-project-showcase";
 import { CourseRoadmap } from "@/components/learn/course-roadmap";
+import { Input } from "@/components/ui/input";
 
 async function loadCourse(courseSlug: string) {
   return serverApiFetchOrNotFound<CatalogCourseDetail>(`/api/v1/catalog/${encodeURIComponent(courseSlug)}`);
@@ -52,11 +53,13 @@ function courseJsonLd(course: CatalogCourseDetail) {
 }
 
 export default async function CatalogCoursePage({
-  params,
+  params, searchParams,
 }: {
   params: Promise<{ courseSlug: string }>;
+  searchParams: Promise<{ coupon_error?: string }>;
 }) {
   const { courseSlug } = await params;
+  const { coupon_error: couponError } = await searchParams;
   const user = await getSessionUser();
   const course = await loadCourse(courseSlug);
   const hasAccess = course.access === "active";
@@ -72,10 +75,19 @@ export default async function CatalogCoursePage({
         <Link href={`/courses/${course.slug}?start=1`} className={buttonVariants({ size: "lg" })}>
           Go to course
         </Link>
+      ) : needsPayment && user ? (
+        <div className="space-y-2">
+          <form action={selfEnrollInCourseAction} className="flex flex-wrap gap-2">
+            <input type="hidden" name="courseId" value={course.id} />
+            <input type="hidden" name="courseSlug" value={course.slug} />
+            <input type="hidden" name="returnTo" value={`/courses/${course.slug}?start=1`} />
+            <Input name="couponCode" minLength={3} maxLength={32} placeholder="Have a 100% coupon? Enter code" aria-label="Coupon code" className="w-64" />
+            <PendingSubmitButton size="lg" pendingLabel="Applying…">Apply coupon</PendingSubmitButton>
+          </form>
+          <Link href={`/courses/${course.slug}/checkout`} className="text-xs text-muted-foreground underline">Continue with access request</Link>
+        </div>
       ) : needsPayment ? (
-        <Link href={`/courses/${course.slug}/checkout`} className={buttonVariants({ size: "lg" })}>
-          Request access
-        </Link>
+        <Link href={`/courses/${course.slug}/checkout`} className={buttonVariants({ size: "lg" })}>Request access</Link>
       ) : !user ? (
         <Link href={`/signup?redirectTo=${encodeURIComponent(enrollPath)}`} className={buttonVariants({ size: "lg" })}>
           {enrollLabel}
@@ -85,6 +97,7 @@ export default async function CatalogCoursePage({
           <input type="hidden" name="courseId" value={course.id} />
           <input type="hidden" name="courseSlug" value={course.slug} />
           <input type="hidden" name="returnTo" value={`/courses/${course.slug}?start=1`} />
+          {course.pricingType === "PAID" ? <Input name="couponCode" minLength={3} maxLength={32} placeholder="Have a 100% coupon? Enter code" aria-label="Coupon code" className="mb-2" /> : null}
           <PendingSubmitButton size="lg" pendingLabel="Enrolling…" className="h-10 px-4">
             {enrollLabel}
           </PendingSubmitButton>
@@ -107,6 +120,7 @@ export default async function CatalogCoursePage({
       <Link href="/catalog" className="text-sm text-muted-foreground hover:text-foreground">
         ← Catalog
       </Link>
+      {couponError ? <p role="alert" className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{couponError === "COUPON_EXHAUSTED" ? "This coupon has no redemptions remaining." : couponError === "COUPON_NOT_APPLICABLE" ? "This coupon is not valid for this course." : "This coupon is invalid or expired."}</p> : null}
 
       <div className="mt-6 overflow-hidden rounded-2xl border bg-card ">
         <CourseCover coverUrl={course.coverUrl} title={course.title} aspect="banner" className="rounded-none" />

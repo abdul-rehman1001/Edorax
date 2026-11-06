@@ -5,6 +5,8 @@ import { requireTeachSurface } from "@/server/auth/guards";
 import { serverApiFetchOrNotFound } from "@/lib/api-server";
 import { CourseSettings } from "@/components/teach/course-cms/course-settings";
 import { CourseTeamPanel } from "@/components/teach/course-cms/course-team-panel";
+import { CourseCouponsPanel } from "@/components/teach/course-cms/course-coupons-panel";
+import type { CourseCouponRow } from "@/server/actions/course-coupons";
 import { CourseIntegritySettings } from "@/components/teach/course-cms/course-integrity-settings";
 import { CourseManagementMenu } from "@/components/teach/course-cms/course-management-menu";
 import { CourseZipUpdate } from "@/components/teach/course-cms/course-zip-update";
@@ -15,9 +17,10 @@ import { cn } from "@/lib/utils";
 export default async function CourseSettingsPage({ params }: { params: Promise<{ courseSlug: string }> }) {
   const { courseSlug } = await params;
   await requireTeachSurface();
-  const [course, team] = await Promise.all([
+  const [course, team, coupons] = await Promise.all([
     serverApiFetchOrNotFound<CourseSettingsView>(`/api/v1/teach/courses/${encodeURIComponent(courseSlug)}/settings`),
     serverApiFetchOrNotFound<CourseTeamView>(`/api/v1/teach/courses/${encodeURIComponent(courseSlug)}/team`),
+    serverApiFetchOrNotFound<CourseCouponRow[]>(`/api/v1/teach/courses/${encodeURIComponent(courseSlug)}/coupons`),
   ]);
 
   return (
@@ -42,12 +45,14 @@ export default async function CourseSettingsPage({ params }: { params: Promise<{
         <a href="#course-details" className="rounded-full border bg-card px-3 py-1.5 font-medium hover:bg-muted">Course details</a>
         <a href="#learning-rules" className="rounded-full border bg-card px-3 py-1.5 font-medium hover:bg-muted">Learning experience</a>
         <a href="#pricing" className="rounded-full border bg-card px-3 py-1.5 font-medium hover:bg-muted">Pricing</a>
+        {course.pricingType === "PAID" ? <a href="#course-coupons" className="rounded-full border bg-card px-3 py-1.5 font-medium hover:bg-muted">Coupons</a> : null}
         <a href="#quiz-integrity" className="rounded-full border bg-card px-3 py-1.5 font-medium hover:bg-muted">Quiz integrity</a>
         <a href="#course-team" className="rounded-full border bg-card px-3 py-1.5 font-medium hover:bg-muted">Course team</a>
       </nav>
 
       <CourseSettings key={course.id} course={course} />
       <CourseIntegritySettings courseId={course.id} integritySnapshots={course.integritySnapshots} />
+      {course.pricingType === "PAID" ? <CourseCouponsPanel courseId={course.id} courseSlug={course.slug} coupons={coupons} /> : null}
       <div id="course-team" className="scroll-mt-24"><CourseTeamPanel courseId={course.id} courseSlug={course.slug} team={team} /></div>
     </main>
   );

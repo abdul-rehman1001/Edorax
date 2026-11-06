@@ -10,7 +10,7 @@ const router = Router();
 
 router.use(authenticate, requireVerified);
 
-router.post("/", validateBody(selfEnrollBody), enrollments.create);
+router.post("/", userRateLimit({ scope: "self-enroll", max: 20, windowMs: 60 * 60_000 }), validateBody(selfEnrollBody), enrollments.create);
 router.post("/:enrollmentId/request-access", userRateLimit({ scope: "course-access-request", max: 5, windowMs: 60 * 60_000 }), validateParams(enrollmentParams), enrollments.requestAccess);
 
 export default router;

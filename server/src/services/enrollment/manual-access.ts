@@ -24,7 +24,39 @@ export async function approveManualAccess(enrollmentId: string, actor: AdminActo
     if (!enrollment || enrollment.lifecycle !== "PAYMENT_REQUIRED" || !enrollment.payment) throw new ConflictError("This enrollment is not awaiting access.");
     const updated = await tx.enrollment.updateMany({ where: { id: enrollmentId, lifecycle: "PAYMENT_REQUIRED" }, data: { lifecycle: "ACTIVE", status: "IN_PROGRESS", startedAt: enrollment.startedAt ?? new Date() } });
     if (!updated.count) throw new ConflictError("This enrollment is no longer awaiting access.");
-    await tx.payment.update({ where: { enrollmentId }, data: { status: "SUCCEEDED", provider: "manual", paidAt: new Date() } });
+    await tx.payment.update({ where: { enrollmentId }, data: {
+      status: "SUCCEEDED", provider: "manual", paidAt: new Date(),
+      instructorShareCents: Math.floor(enrollment.payment.amountCents / 2),
+      instructorPayoutStatus: enrollment.payment.amountCents > 0 ? "PENDING" : "NOT_DUE",
+    } });
     await recordAdminAction(tx, { actor, action: ADMIN_AUDIT_ACTIONS.MANUAL_ACCESS_APPROVE, targetType: "Enrollment", targetId: enrollmentId, summary: "Confirmed manual payment and granted course access." });
+  });
+}
+
+export async function listManualInstructorPayouts() {
+  const payments = await prisma.payment.findMany({
+    where: { status: "SUCCEEDED", provider: "manual", instructorPayoutStatus: { in: ["PENDING", "PAID"] } },
+    orderBy: [{ instructorPayoutStatus: "asc" }, { paidAt: "desc" }],
+    select: {
+      amountCents: true, currency: true, instructorPayoutStatus: true, instructorShareCents: true, instructorPayoutPaidAt: true, paidAt: true,
+      enrollment: { select: { id: true, user: { select: { name: true, email: true } }, course: { select: { title: true, mentor: { select: { name: true, email: true } } } } } },
+    },
+  });
+  return payments.map(({ enrollment, ...payment }) => ({ id: enrollment.id, ...payment,
+    learner: enrollment.user, course: enrollment.course.title, instructor: enrollment.course.mentor,
+    instructorPayoutPaidAt: payment.instructorPayoutPaidAt?.toISOString() ?? null,
+  }));
+}
+
+export async function markManualInstructorPayoutPaid(enrollmentId: string, actor: AdminActor) {
+  await prisma.$transaction(async tx => {
+    const payment = await tx.payment.findUnique({ where: { enrollmentId }, include: { enrollment: { include: { course: true } } } });
+    if (!payment || payment.status !== "SUCCEEDED" || payment.provider !== "manual" || payment.instructorPayoutStatus !== "PENDING") {
+      throw new ConflictError("This manual instructor payout is not pending.");
+    }
+    const updated = await tx.payment.updateMany({ where: { enrollmentId, instructorPayoutStatus: "PENDING" }, data: { instructorPayoutStatus: "PAID", instructorPayoutPaidAt: new Date() } });
+    if (!updated.count) throw new ConflictError("This instructor payout was already recorded.");
+    await recordAdminAction(tx, { actor, action: ADMIN_AUDIT_ACTIONS.MANUAL_INSTRUCTOR_PAYOUT_PAID, targetType: "Payment", targetId: payment.id,
+      summary: `Recorded manual instructor payout of ${payment.instructorShareCents} ${payment.currency} cents for ${payment.enrollment.course.title}.` });
   });
 }

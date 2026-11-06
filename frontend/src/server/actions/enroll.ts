@@ -38,17 +38,21 @@ async function leaveEnrollmentForMascot(courseId: string) {
 export async function selfEnrollInCourseAction(formData: FormData): Promise<void> {
   const courseId = String(formData.get("courseId") ?? "");
   const courseSlug = String(formData.get("courseSlug") ?? "");
+  const couponCode = String(formData.get("couponCode") ?? "").trim();
   const returnTo = safeRedirectTo(String(formData.get("returnTo") ?? "").trim());
   if (!courseId || !courseSlug) throw new Error("Missing course.");
 
   let result: SelfEnrollResult;
   try {
-    result = await serverApiFetch<SelfEnrollResult>("/api/v1/enrollments", { method: "POST", json: { courseId } });
+    result = await serverApiFetch<SelfEnrollResult>("/api/v1/enrollments", { method: "POST", json: { courseId, ...(couponCode ? { couponCode } : {}) } });
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       // Already enrolled or awaiting payment: send the learner where they can continue.
       if (error.code === ENROLLMENT_ERROR_CODES.PAYMENT_PENDING) redirect(`/courses/${courseSlug}/checkout`);
       if (error.code === ENROLLMENT_ERROR_CODES.ALREADY_ENROLLED) redirect(returnTo ?? `/courses/${courseSlug}`);
+      if ([ENROLLMENT_ERROR_CODES.COUPON_INVALID, ENROLLMENT_ERROR_CODES.COUPON_EXHAUSTED, ENROLLMENT_ERROR_CODES.COUPON_NOT_APPLICABLE].some((code) => code === error.code)) {
+        redirect(`/catalog/${encodeURIComponent(courseSlug)}?coupon_error=${encodeURIComponent(error.code ?? "invalid")}`);
+      }
       throw new Error(error.message);
     }
     throw error;

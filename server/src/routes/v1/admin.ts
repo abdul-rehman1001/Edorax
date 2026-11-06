@@ -1,5 +1,5 @@
 import { prisma } from "../../db/prisma.js";
-import { approveManualAccess } from "../../services/enrollment/manual-access.js";
+import { approveManualAccess, listManualInstructorPayouts, markManualInstructorPayoutPaid } from "../../services/enrollment/manual-access.js";
 import { ok } from "../../utils/responses.js";
 import { enrollmentParams } from "../../validations/enrollments.js";
 import { Router } from "express";
@@ -57,6 +57,11 @@ router.get("/manual-access", async (_req, res) => {
 router.post("/manual-access/:enrollmentId/approve", validateParams(enrollmentParams), async (req, res) => {
   await approveManualAccess(req.params.enrollmentId as string, req.user!);
   ok(res, { approved: true });
+});
+router.get("/manual-payouts", async (_req, res) => ok(res, await listManualInstructorPayouts()));
+router.post("/manual-payouts/:enrollmentId/paid", validateParams(enrollmentParams), async (req, res) => {
+  await markManualInstructorPayoutPaid(req.params.enrollmentId as string, req.user!);
+  ok(res, { paid: true });
 });
 
 router.get("/overview", admin.getOverview);

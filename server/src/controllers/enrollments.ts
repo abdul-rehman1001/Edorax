@@ -6,8 +6,8 @@ import { loadCheckout } from "../services/enrollment/checkout.js";
 
 // POST /api/v1/enrollments
 export async function create(req: Request, res: Response) {
-  const { courseId } = req.body as { courseId: string };
-  const result = await selfEnroll(req.user!.id, courseId);
+  const { courseId, couponCode } = req.body as { courseId: string; couponCode?: string };
+  const result = await selfEnroll(req.user!.id, courseId, couponCode);
   created(res, result);
 }
 
