@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@buildment/learning-ui/course-theme.css";
+@import "@buildment/learning-ui/mascot.css";
 @source "../../node_modules/@buildment/learning-ui/src";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -448,24 +449,10 @@
   }
 }
 
-/* Mascot (src/components/mascot): the bubble pops in, the body plays one move for its pose,
-   and small parts (waving arm, sparkles, idea bulb, confetti, tea steam) loop briefly. Blinking and the talking mouth
-   are driven from React. Everything here is off when motion is reduced. */
-@keyframes mascot-enter {
-  0% {
-    opacity: 0;
-    transform: translateY(16px) scale(0.9);
-  }
-  60% {
-    opacity: 1;
-    transform: translateY(-4px) scale(1.03);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
+/* Mascot rig (src/components/mascot): the body plays one move for its pose, and small parts
+   (waving arm, sparkles, idea bulb, confetti, tea steam) loop briefly. Blinking and the talking mouth
+   are driven from React. Everything here is off when motion is reduced. The player's own motion is
+   in @buildment/learning-ui/mascot.css. */
 @keyframes mascot-jump {
   0%,
   100% {
@@ -646,14 +633,6 @@
   }
 }
 
-.mascot-enter {
-  animation: mascot-enter 420ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
-}
-
-.mascot-body {
-  transform-origin: 50% 100%;
-}
-
 .mascot-motion-jump {
   animation: mascot-jump 700ms ease-out 120ms both;
 }
@@ -719,7 +698,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mascot-enter,
   .mascot-motion-jump,
   .mascot-motion-puff,
   .mascot-motion-nod,

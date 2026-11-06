@@ -1,5 +1,6 @@
 import type { EngagementTrackInput } from "@/shared/engagement/engine";
-import type { PageArea } from "@/shared/engagement/mascots";
+
+export { isReadingPath, pageAreaFor } from "@buildment/learning-ui/mascot/paths";
 
 // Some moments end in a server-side redirect (enrolling), so no client code is running to report
 // them. The server action leaves this short-lived cookie instead, and the mascot player reports it
@@ -29,29 +30,4 @@ export function readPendingEngagementCookie(cookieHeader: string): EngagementTra
     if (name === PENDING_ENGAGEMENT_COOKIE) return parsePendingEngagement(value.join("="));
   }
   return null;
-}
-
-/** Chapter reader pages, where only reactions to the learner's own actions may appear. */
-export function isReadingPath(pathname: string): boolean {
-  return /^\/courses\/[^/]+\/(?!checkout(?:\/|$))[^/]+\/?$/.test(pathname);
-}
-
-/** Top-level learn routes, by their first path segment. */
-const AREA_BY_SEGMENT = new Map<string, PageArea>([
-  ["catalog", "catalog"],
-  ["dashboard", "dashboard"],
-  ["leaderboard", "dashboard"],
-  ["my-courses", "my-courses"],
-  ["my-questions", "my-questions"],
-  ["progress", "progress"],
-  ["settings", "settings"],
-]);
-
-/** The part of the app a path belongs to, for MASCOT_AREA_MAP; null outside the learn pages. */
-export function pageAreaFor(pathname: string): PageArea | null {
-  const [first, courseSlug, page, ...rest] = pathname.split("/").filter(Boolean);
-  if (first !== "courses") return AREA_BY_SEGMENT.get(first ?? "") ?? null;
-  if (!courseSlug || rest.length > 0) return null;
-  if (!page || page === "variant") return "course";
-  return page === "checkout" ? "checkout" : "chapter";
 }
